@@ -32,9 +32,10 @@ void TrackablesApiImpl::get_trackables(Pistache::Http::ResponseWriter &response)
     response.send(Pistache::Http::Code::Ok, "Do some magic\n");
 }
 
+/*
 void init(){
     auto worldStorage=xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
-}
+}*/
 
 }
 }
