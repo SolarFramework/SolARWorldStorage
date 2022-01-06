@@ -1,0 +1,90 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+build/
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Visual Studio files
+*.ib_pdb_index
+*.idb
+*.ilk
+*.pdb
+*.sln
+*.suo
+*.vcproj
+*vcproj.*.*.user
+*.vcxproj*
+*.user
+*.user.*
+*.ncb
+*.sdf
+*.opensdf
+*.vcxproj
+*vcxproj.*
+x64/
+.vs/
+*.bat
+*remakeninfo.txt
+Debug/
+Release/
+*-packagedependencies.*
+*-packagedependencies-win.*
+*-packagedependencies-linux.*
+*-packagedependencies-unix.*
+*-packagedependencies-android.*
+*.pc
+*-Debug
+*-Release
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Generated documentation
+doc/ 
+doxygen/
+
+# Tests builds
+tests/bin
+
+# Others
+*.*pre1
+*.rej
+*.stash
+*.rc
+*.res
+*.exp
+*.ilk
+*.pdb
+*.autosave
+*.project
+*.props
+*.log
+*.tlog
+*.TMP
+*.tmp
+.git Merge
