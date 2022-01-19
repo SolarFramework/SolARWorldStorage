@@ -1,13 +1,24 @@
-QT -= gui
-CONFIG -= app_bundle
+## global defintions : target lib name, version
+TARGET = SolARService_WorldStorage
+VERSION = 0.11.0
 
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+QMAKE_PROJECT_DEPTH = 0
 
+## remove Qt dependencies
+QT     -= core gui
+CONFIG -= qt
+CONFIG += c++1z
+CONFIG += console
+CONFIG += verbose
+
+DEFINES += MYVERSION=$${VERSION}
+
+include(findremakenrules.pri)
+
+LIBS += -L"/usr/lib" -l"PistacheGen"
 
 # Default rules for deployment.
-qnx: target.path = /tmp/$${TARGET}/bin
+qnx: target.path = $${PWD}/bin/Debug# /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
@@ -15,28 +26,30 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG += libpistache
 
+DEPENDENCIESCONFIG = sharedlib install_recurse
+
+#NOTE : CONFIG as staticlib or sharedlib, DEPENDENCIESCONFIG as staticlib or sharedlib, QMAKE_TARGET.arch and PROJECTDEPLOYDIR MUST BE DEFINED BEFORE templatelibconfig.pri inclusion
+include ($$shell_quote($$shell_path($${QMAKE_REMAKEN_RULES_ROOT}/templateappconfig.pri)))  # Shell_quote & shell_path required for visual on windows
+
 INCLUDEPATH += \
     Solar-Wrapper
-    Solar-Wrapper/api
-    Solar-Wrapper/model
     Solar-Wrapper/impl
 
 HEADERS += \
-    Solar-Wrapper/api/TrackablesApi.h \
     Solar-Wrapper/impl/TrackablesApiImpl.h \
-    Solar-Wrapper/model/Error.h \
-    Solar-Wrapper/model/Helpers.h \
-    Solar-Wrapper/model/Trackable.h \
-    Solar-Wrapper/model/TrackableEncodingInformationStructure.h \
-    Solar-Wrapper/model/Transform3d.h \
-    Solar-Wrapper/model/nlohmann/json.hpp
 
 SOURCES += \
-    Solar-Wrapper/api/TrackablesApi.cpp \
-    Solar-Wrapper/impl/TrackablesApiImpl.cpp \
     Solar-Wrapper/main.cpp \
-    Solar-Wrapper/model/Error.cpp \
-    Solar-Wrapper/model/Helpers.cpp \
-    Solar-Wrapper/model/Trackable.cpp \
-    Solar-Wrapper/model/TrackableEncodingInformationStructure.cpp \
-    Solar-Wrapper/model/Transform3d.cpp
+    Solar-Wrapper/impl/TrackablesApiImpl.cpp \
+
+DISTFILES += \
+    build/SolARSample_World_Storage_conf.xml \
+    packagedependencies.txt
+
+config_files.path = target.path
+config_files.files= $$files($${PWD}/SolARSample_World_Storage_conf.xml)
+INSTALLS += config_files
+
+
+#NOTE : Must be placed at the end of the .pro
+include ($$shell_quote($$shell_path($${QMAKE_REMAKEN_RULES_ROOT}/remaken_install_target.pri)))) # Shell_quote & shell_path required for visual on windows
