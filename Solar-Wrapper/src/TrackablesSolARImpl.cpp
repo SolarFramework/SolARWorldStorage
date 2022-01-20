@@ -10,12 +10,11 @@
 * Do not edit the class manually.
 */
 
-#include "TrackablesApiImpl.h"
+#include "TrackablesSolARImpl.h"
 #include "Trackable.h"
 #include "Helpers.h"
 #include "xpcf/xpcf.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/random_generator.hpp>
+#include "xpcf/core/uuid.h"
 #include <nlohmann/json.hpp>
 
 namespace xpcf = org::bcom::xpcf;
@@ -28,12 +27,12 @@ namespace implem {
     using namespace SolAR::datastructure;
     using namespace nlohmann;
 
-    TrackablesApiImpl::TrackablesApiImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr)
+    TrackablesSolARImpl::TrackablesSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr)
         : TrackablesApi(rtr)
     {
     }
 
-    void TrackablesApiImpl::add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response){
+    void TrackablesSolARImpl::add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response){
 
         //convert all the Trackable attributes into StorageTrackable attributes  to create one and store it in the world storage
 
@@ -41,7 +40,7 @@ namespace implem {
         Transform3Df transfo = Transform3Df::Identity();
 
         //creator uuid
-        boost::uuids::uuid creatorId = boost::lexical_cast<boost::uuids::uuid>(trackable.getCreatorUID());
+        xpcf::uuids::uuid creatorId = xpcf::toUUID(trackable.getCreatorUID());
 
         //trackable type
         StorageTrackableType type = resolveTrackableType(trackable.getTrackableType());
@@ -50,7 +49,7 @@ namespace implem {
         EncodingInfo encodingInfo(trackable.getTrackableEncodingInformation().getDataFormat(), trackable.getTrackableEncodingInformation().getVersion());
 
         //payload
-        std::vector<std::byte> payload = TrackablesApiImpl::to_bytes(trackable.getTrackablePayload());
+        std::vector<std::byte> payload = TrackablesSolARImpl::toBytes(trackable.getTrackablePayload());
 
 
         //unitsystem
@@ -68,19 +67,20 @@ namespace implem {
         }
 
         //adding the newly created StorageTrackable to the worldgraph
-        boost::uuids::uuid trackableId = m_worldStorage->addTrackable(creatorId,type, encodingInfo, payload, transfo, unitSystem, dimension, keyvalueTagList);
+        xpcf::uuids::uuid trackableId = m_worldStorage->addTrackable(creatorId,type, encodingInfo, payload, transfo, unitSystem, dimension, keyvalueTagList);
 
 
         //initialize the json object that we will send back to the client (the trackable's id)
-        std::string trackableIdString = boost::lexical_cast<std::string>(trackableId);
+        std::string trackableIdString = xpcf::uuids::to_string(trackableId);
         auto jsonObjects = nlohmann::json::array();
         to_json(jsonObjects, trackableIdString);
 
         //send the ID to the client
+        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
         response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
     }
 
-    void TrackablesApiImpl::get_trackables(Pistache::Http::ResponseWriter &response) {
+    void TrackablesSolARImpl::get_trackables(Pistache::Http::ResponseWriter &response) {
 
         //initialize the json object that we will send back to the client
         auto jsonObjects = nlohmann::json::array();
@@ -91,13 +91,13 @@ namespace implem {
         Trackable track;
 
         //iteration over the content of the world storage
-        for (StorageTrackable& t : m_worldStorage->getTrackables()){
+        for (SRef<StorageTrackable> t : m_worldStorage->getTrackables()){
             //add the current trackable to the JSON object
-            track = fromStorage(t);
+            track = fromStorage(*t);
             to_json(toAdd, track);
 
             //also add its ID since the Trackable object (specified by Open Api generator) does not have an ID
-            trackableId = boost::lexical_cast<std::string>(t.getID());
+            trackableId = xpcf::uuids::to_string(t->getID());
             toAdd["id"]= trackableId;
 
             jsonObjects.push_back(toAdd);
@@ -108,28 +108,34 @@ namespace implem {
         response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
     }
 
-    void TrackablesApiImpl::delete_trackable(const std::string &trackableId, Pistache::Http::ResponseWriter &response) {
+    void TrackablesSolARImpl::delete_trackable(const std::string &trackableId, Pistache::Http::ResponseWriter &response) {
         //trackable uuid
-        boost::uuids::uuid id = boost::lexical_cast<boost::uuids::uuid>(trackableId);
-        m_worldStorage->removeTrackable(id);
-        response.send(Pistache::Http::Code::Ok, "Trackable removed\n");
+        ::xpcf::uuids::uuid id = xpcf::toUUID(trackableId);
+        if(m_worldStorage->removeTrackable(id)){
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Ok, "Trackable removed\n");
+        }
+        else{
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+        }
     }
 
-    void TrackablesApiImpl::get_trackable_by_id(const std::string &trackableId, Pistache::Http::ResponseWriter &response) {
+    void TrackablesSolARImpl::get_trackable_by_id(const std::string &trackableId, Pistache::Http::ResponseWriter &response) {
 
         //initialize the json object that we will send back to the client
         auto jsonObjects = nlohmann::json::array();
 
         //look for the trackable with given id
-        boost::uuids::uuid id = boost::lexical_cast<boost::uuids::uuid>(trackableId);
-        StorageTrackable storageTrackable = m_worldStorage->getTrackable(id);
+        xpcf::uuids::uuid id = xpcf::toUUID(trackableId);
+        SRef<StorageTrackable> storageTrackable = m_worldStorage->getTrackable(id);
 
-        if(id != storageTrackable.getID()){
+        if(id != storageTrackable->getID()){
             //if it's not found the world storage manager will send back a StorageTrackable with ID 00000000-0000-0000-0000-000000000000
             response.send(Pistache::Http::Code::Not_Found, "Le trackable avec l'ID donnée n'existe pas");
         }else {
             //StorageTrackable found, we convert it into a Trackable
-            Trackable trackable = fromStorage(storageTrackable);
+            Trackable trackable = fromStorage(*storageTrackable);
 
             //add the Trackable to our JSON object
             to_json(jsonObjects, trackable);
@@ -143,7 +149,7 @@ namespace implem {
         }
     }
 
-    void TrackablesApiImpl::init(){
+    void TrackablesSolARImpl::init(){
         TrackablesApi::init();
         try {
             //SolAR component initialization
@@ -156,14 +162,14 @@ namespace implem {
         }
     }
 
-    Trackable TrackablesApiImpl::fromStorage(StorageTrackable trackable){
+    Trackable TrackablesSolARImpl::fromStorage(StorageTrackable trackable){
         //the object to be returned
         Trackable ret;
 
         //convert all the StorageTrackable attributes into Trackable attibutes
 
         //creator UUID
-        std::string creatorUid = boost::lexical_cast<std::string>(trackable.getAuthor());
+        std::string creatorUid = xpcf::uuids::to_string(trackable.getAuthor());
         ret.setCreatorUID(creatorUid);
 
         //Trackable type
@@ -188,7 +194,8 @@ namespace implem {
         for (size_t i = 0, nRows = transform3d.rows(), nCols = transform3d.cols(); i < nRows; ++i)
            for (size_t j = 0; j < nCols; ++j)
            {
-                localCRS[i,j];  transform3d(i,j);
+                localCRS[i,j];
+                transform3d(i,j);
            }
         ret.setLocalCRS(localCRS);
 
@@ -222,7 +229,7 @@ namespace implem {
         return ret;
     }
 
-    std::vector<std::byte> TrackablesApiImpl::to_bytes(std::string const& s)
+    std::vector<std::byte> TrackablesSolARImpl::toBytes(std::string const& s)
     {
         std::vector<std::byte> bytes;
         bytes.reserve(std::size(s));

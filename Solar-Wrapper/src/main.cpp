@@ -24,7 +24,7 @@
 
 
 #include "xpcf/xpcf.h"
-#include "impl/TrackablesApiImpl.h"
+#include "impl/TrackablesSolARImpl.h"
 
 #define PISTACHE_SERVER_THREADS     2
 #define PISTACHE_SERVER_MAX_REQUEST_SIZE 32768
@@ -75,7 +75,7 @@ int main() {
     try {
 
         //init the logger
-        //SolARLog::init();
+       // SolARLog::init();
         //LOG_ADD_LOG_TO_CONSOLE();
         //LOG_INFO("program is running");
         std::cout << "program is running" << std::endl;
@@ -104,7 +104,7 @@ int main() {
         httpEndpoint->init(opts);
 
 
-        TrackablesApiImpl TrackablesApiserver(router);
+        TrackablesSolARImpl TrackablesApiserver(router);
         TrackablesApiserver.init();
 
         httpEndpoint->setHandler(router->handler());

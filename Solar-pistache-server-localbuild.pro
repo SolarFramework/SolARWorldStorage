@@ -33,14 +33,14 @@ include ($$shell_quote($$shell_path($${QMAKE_REMAKEN_RULES_ROOT}/templateappconf
 
 INCLUDEPATH += \
     Solar-Wrapper
-    Solar-Wrapper/impl
+    Solar-Wrapper/interfaces
 
 HEADERS += \
-    Solar-Wrapper/impl/TrackablesApiImpl.h \
+    Solar-Wrapper/interfaces/TrackablesSolARImpl.h
 
 SOURCES += \
-    Solar-Wrapper/main.cpp \
-    Solar-Wrapper/impl/TrackablesApiImpl.cpp \
+    Solar-Wrapper/src/TrackablesSolARImpl.cpp \
+    Solar-Wrapper/src/main.cpp
 
 DISTFILES += \
     build/SolARSample_World_Storage_conf.xml \
