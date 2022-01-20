@@ -24,7 +24,7 @@
 
 
 #include "xpcf/xpcf.h"
-#include "impl/TrackablesSolARImpl.h"
+#include "TrackablesSolARImpl.h"
 
 #define PISTACHE_SERVER_THREADS     2
 #define PISTACHE_SERVER_MAX_REQUEST_SIZE 32768

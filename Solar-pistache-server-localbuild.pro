@@ -15,7 +15,7 @@ DEFINES += MYVERSION=$${VERSION}
 
 include(findremakenrules.pri)
 
-LIBS += -L"/usr/lib" -l"PistacheGen"
+LIBS += -L"/usr/local" -l"PistacheGen"
 
 # Default rules for deployment.
 qnx: target.path = $${PWD}/bin/Debug# /tmp/$${TARGET}/bin
