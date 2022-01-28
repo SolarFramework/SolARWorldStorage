@@ -89,8 +89,8 @@ namespace implem {
             to_json(toAdd, track);
 
             //also add its ID since the Trackable object (specified by Open Api generator) does not have an ID
-            trackableId = xpcf::uuids::to_string(t->getID());
-            toAdd["id"]= trackableId;
+            //trackableId = xpcf::uuids::to_string(t->getID());
+            //toAdd["id"]= trackableId;
 
             jsonObjects.push_back(toAdd);
         }
@@ -159,6 +159,10 @@ namespace implem {
         Trackable ret;
 
         //convert all the StorageTrackable attributes into Trackable attibutes
+
+        //trackable UUID
+        std::string id = xpcf::uuids::to_string(trackable.getID());
+        ret.setId(id);
 
         //creator UUID
         std::string creatorUid = xpcf::uuids::to_string(trackable.getAuthor());
