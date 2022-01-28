@@ -25,6 +25,7 @@
 
 #include "xpcf/xpcf.h"
 #include "TrackablesSolARImpl.h"
+#include "DefaultSolARImpl.h"
 
 #define PISTACHE_SERVER_THREADS     2
 #define PISTACHE_SERVER_MAX_REQUEST_SIZE 32768
@@ -103,9 +104,11 @@ int main() {
         opts.maxResponseSize(PISTACHE_SERVER_MAX_RESPONSE_SIZE);
         httpEndpoint->init(opts);
 
-
         TrackablesSolARImpl TrackablesApiserver(router);
         TrackablesApiserver.init();
+
+        DefaultSolARImpl DefaultSolARImpl(router);
+        DefaultSolARImpl.init();
 
         httpEndpoint->setHandler(router->handler());
         httpEndpoint->serve();

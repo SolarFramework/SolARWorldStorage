@@ -32,13 +32,15 @@ DEPENDENCIESCONFIG = sharedlib install_recurse
 include ($$shell_quote($$shell_path($${QMAKE_REMAKEN_RULES_ROOT}/templateappconfig.pri)))  # Shell_quote & shell_path required for visual on windows
 
 INCLUDEPATH += \
-    Solar-Wrapper
-    Solar-Wrapper/interfaces
+    Solar-Wrapper/ \
+    Solar-Wrapper/interfaces/
 
 HEADERS += \
+    Solar-Wrapper/interfaces/DefaultSolARImpl.h \
     Solar-Wrapper/interfaces/TrackablesSolARImpl.h
 
 SOURCES += \
+    Solar-Wrapper/src/DefaultSolARImpl.cpp \
     Solar-Wrapper/src/TrackablesSolARImpl.cpp \
     Solar-Wrapper/src/main.cpp
 
