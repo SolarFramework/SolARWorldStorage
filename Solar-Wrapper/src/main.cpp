@@ -25,6 +25,7 @@
 
 #include "xpcf/xpcf.h"
 #include "TrackablesSolARImpl.h"
+#include "WorldAnchorsSolARImpl.h"
 #include "DefaultSolARImpl.h"
 
 #define PISTACHE_SERVER_THREADS     2
@@ -76,7 +77,7 @@ int main() {
     try {
 
         //init the logger
-       // SolARLog::init();
+        // SolARLog::init();
         //LOG_ADD_LOG_TO_CONSOLE();
         //LOG_INFO("program is running");
         std::cout << "program is running" << std::endl;
@@ -106,6 +107,9 @@ int main() {
 
         TrackablesSolARImpl TrackablesApiserver(router);
         TrackablesApiserver.init();
+
+        WorldAnchorsSolARImpl WorldAnchorsSolARImpl(router);
+        WorldAnchorsSolARImpl.init();
 
         DefaultSolARImpl DefaultSolARImpl(router);
         DefaultSolARImpl.init();

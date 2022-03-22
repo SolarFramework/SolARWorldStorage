@@ -47,14 +47,14 @@ class TrackablesSolARImpl : public org::openapitools::server::api::TrackablesApi
         void add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to delete a trackable, it fetches the StorageTrackable in the world storage Manager and removes it
-        /// @param trackableId : the ID of the StorageTrackable to be removed
+        /// @param trackableUUID : the ID of the StorageTrackable to be removed
         /// @param response : the response to be sent : if it succeeds, a confirmation of the deletion of the StorageTrackable
-        void delete_trackable(const std::string &trackableId, Pistache::Http::ResponseWriter &response) override;
+        void delete_trackable(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to get a single StorageTrackable from the world storage
-        /// @param trackableId : the ID of the trackable to be fetched
+        /// @param trackableUUID : the ID of the trackable to be fetched
         /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from the StorageTrackable
-        void get_trackable_by_id(const std::string &trackableId, Pistache::Http::ResponseWriter &response) override;
+        void get_trackable_by_id(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to get all the trackables currently stored in the world storage
         /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from all the StorageTrackables
@@ -75,8 +75,6 @@ class TrackablesSolARImpl : public org::openapitools::server::api::TrackablesApi
      private:
         /// @brief the instance of the world storage manager that will be used to handle the queries
         SRef<SolAR::api::storage::IWorldGraphManager> m_worldStorage;
-
-
 };
 
 } // namespace org::openapitools::server::api

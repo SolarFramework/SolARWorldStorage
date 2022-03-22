@@ -15,7 +15,7 @@ namespace implem {
         response.send(Pistache::Http::Code::Ok, "Version 0.0.3");
     }
 
-    void DefaultSolARImpl::ping_get(Pistache::Http::ResponseWriter &response) {
+    void DefaultSolARImpl::get_ping(Pistache::Http::ResponseWriter &response) {
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
         response.send(Pistache::Http::Code::Ok, "Pong");
     }

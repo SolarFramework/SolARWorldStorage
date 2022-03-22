@@ -33,7 +33,7 @@ namespace org::openapitools::server::implem
         // DefaultApi interface
         private:
             void get_version(Pistache::Http::ResponseWriter &response) override;
-            void ping_get(Pistache::Http::ResponseWriter &response) override;
+            void get_ping(Pistache::Http::ResponseWriter &response) override;
      };
 
 }

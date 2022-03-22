@@ -3,6 +3,7 @@
 #include "Helpers.h"
 #include "xpcf/xpcf.h"
 #include "xpcf/core/uuid.h"
+#include "UnitSysConversion.h"
 #include <nlohmann/json.hpp>
 
 namespace xpcf = org::bcom::xpcf;
@@ -21,18 +22,18 @@ namespace implem {
     {
     }
 
-    void TrackablesSolARImpl::add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response){
-
+    void TrackablesSolARImpl::add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response)
+    {
         //convert all the Trackable attributes into StorageTrackable attributes  to create one and store it in the world storage
 
         //TODO transform 3d
         std::vector<float> vector = trackable.getLocalCRS();
-        float* array = &vector[0];// = trackable.getLocalCRS();
+        float* array = &vector[0];
         Matrix4f matrix = Map<Matrix4f>(array);
         Transform3Df transfo(matrix);
 
         //creator uuid
-        xpcf::uuids::uuid creatorId = xpcf::toUUID(trackable.getCreatorUID());
+        xpcf::uuids::uuid creatorId = xpcf::toUUID(trackable.getCreatorUUID());
 
         //trackable type
         StorageTrackableType type = resolveTrackableType(trackable.getTrackableType());
@@ -45,14 +46,14 @@ namespace implem {
 
 
         //unitsystem
-        UnitSystem unitSystem = resolveUnitSystem(trackable.getUnitSystem());
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
 
         //dimension
-        Vector3d dimension = Vector3d(trackable.getTrackableDimension().data());
+        Vector3d dimension = Vector3d(trackable.getTrackableSize().data());
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
-        for (std::pair<std::string,std::vector<std::string>> tag : trackable.getKeyvalueTagList()){
+        for (std::pair<std::string,std::vector<std::string>> tag : trackable.getKeyvalueTags()){
             for(std::string value : tag.second){
                 keyvalueTagList.insert({tag.first,value});
             }
@@ -72,14 +73,14 @@ namespace implem {
         response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
     }
 
-    void TrackablesSolARImpl::get_trackables(Pistache::Http::ResponseWriter &response) {
+    void TrackablesSolARImpl::get_trackables(Pistache::Http::ResponseWriter &response)
+    {
 
         //initialize the json object that we will send back to the client
         auto jsonObjects = nlohmann::json::array();
 
         //declaration of all the objects that will be changed at each iteration of the loop
         nlohmann::json toAdd;
-        std::string trackableId;
         Trackable track;
 
         //iteration over the content of the world storage
@@ -87,10 +88,6 @@ namespace implem {
             //add the current trackable to the JSON object
             track = fromStorage(*t);
             to_json(toAdd, track);
-
-            //also add its ID since the Trackable object (specified by Open Api generator) does not have an ID
-            //trackableId = xpcf::uuids::to_string(t->getID());
-            //toAdd["id"]= trackableId;
 
             jsonObjects.push_back(toAdd);
         }
@@ -100,9 +97,10 @@ namespace implem {
         response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
     }
 
-    void TrackablesSolARImpl::delete_trackable(const std::string &trackableId, Pistache::Http::ResponseWriter &response) {
+    void TrackablesSolARImpl::delete_trackable(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response)
+    {
         //trackable uuid
-        ::xpcf::uuids::uuid id = xpcf::toUUID(trackableId);
+        ::xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
         if(m_worldStorage->removeTrackable(id)){
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
             response.send(Pistache::Http::Code::Ok, "Trackable removed\n");
@@ -113,18 +111,17 @@ namespace implem {
         }
     }
 
-    void TrackablesSolARImpl::get_trackable_by_id(const std::string &trackableId, Pistache::Http::ResponseWriter &response) {
-
+    void TrackablesSolARImpl::get_trackable_by_id(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response)
+    {
         //initialize the json object that we will send back to the client
         auto jsonObjects = nlohmann::json::array();
 
         //look for the trackable with given id
-        xpcf::uuids::uuid id = xpcf::toUUID(trackableId);
+        xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
         SRef<StorageTrackable> storageTrackable = m_worldStorage->getTrackable(id);
 
-        if(id != storageTrackable->getID()){
-            //if it's not found the world storage manager will send back a StorageTrackable with ID 00000000-0000-0000-0000-000000000000
-            response.send(Pistache::Http::Code::Not_Found, "Le trackable avec l'ID donnée n'existe pas");
+        if((storageTrackable == nullptr) || (storageTrackable->getID() != id)){
+            response.send(Pistache::Http::Code::Not_Found, "There is no trackable corresponding to the given ID");
         }else {
             //StorageTrackable found, we convert it into a Trackable
             Trackable trackable = fromStorage(*storageTrackable);
@@ -133,24 +130,11 @@ namespace implem {
             to_json(jsonObjects, trackable);
 
             //also add its ID since the Trackable object (specified by Open Api generator) does not have an ID
-            jsonObjects["id"]= trackableId;
+            jsonObjects["id"]= trackableUUID;
 
             //send the Trackable to the client
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
             response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
-        }
-    }
-
-    void TrackablesSolARImpl::init(){
-        TrackablesApi::init();
-        try {
-            //SolAR component initialization
-            SRef<xpcf::IComponentManager> xpcfComponentManager = xpcf::getComponentManagerInstance();
-            m_worldStorage = xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
-        }
-        catch (xpcf::Exception e)
-        {
-            std::cout << e.what() << std::endl;
         }
     }
 
@@ -162,11 +146,11 @@ namespace implem {
 
         //trackable UUID
         std::string id = xpcf::uuids::to_string(trackable.getID());
-        ret.setId(id);
+        ret.setUUID(id);
 
         //creator UUID
         std::string creatorUid = xpcf::uuids::to_string(trackable.getAuthor());
-        ret.setCreatorUID(creatorUid);
+        ret.setCreatorUUID(creatorUid);
 
         //Trackable type
         std::string type = resolveTrackableType(trackable.getType());
@@ -196,8 +180,8 @@ namespace implem {
         ret.setLocalCRS(localCRS);
 
         //Unit system
-        std::string unit = resolveUnitSystem(trackable.getUnitSystem());
-        ret.setUnitSystem(unit);
+        UnitSystem unit = resolveUnitSystem(trackable.getUnitSystem());
+        ret.setUnit(unit);
 
         //Dimension (scale)
         Vector3d dimension = trackable.getScale();
@@ -205,7 +189,7 @@ namespace implem {
         for(int i = 0; i < 3; i++){
             vector[i] = dimension[0,i];
         }
-        ret.setTrackableDimension(vector);
+        ret.setTrackableSize(vector);
 
         //keyvalue taglist (multimap to map<string,vector<string>>)
         std::map<std::string, std::vector<std::string>> tagList;
@@ -220,7 +204,7 @@ namespace implem {
                     tagList.insert(std::pair<std::string, std::vector<std::string>>(itr->first, vector));
                 }
         }
-        ret.setKeyvalueTagList(tagList);
+        ret.setKeyvalueTags(tagList);
 
         return ret;
     }
@@ -234,6 +218,19 @@ namespace implem {
         });
 
         return bytes;
+    }
+
+    void TrackablesSolARImpl::init(){
+        TrackablesApi::init();
+        try {
+            //SolAR component initialization
+            SRef<xpcf::IComponentManager> xpcfComponentManager = xpcf::getComponentManagerInstance();
+            m_worldStorage = xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
+        }
+        catch (xpcf::Exception e)
+        {
+            std::cout << e.what() << std::endl;
+        }
     }
 
 }
