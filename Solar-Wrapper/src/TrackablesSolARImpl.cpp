@@ -17,9 +17,10 @@ namespace implem {
     using namespace nlohmann;
     using namespace Eigen;
 
-    TrackablesSolARImpl::TrackablesSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr)
+    TrackablesSolARImpl::TrackablesSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr, SRef<SolAR::api::storage::IWorldGraphManager> worldStorage)
         : TrackablesApi(rtr)
     {
+        m_worldStorage = worldStorage;
     }
 
     void TrackablesSolARImpl::add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response)
@@ -88,7 +89,6 @@ namespace implem {
             //add the current trackable to the JSON object
             track = fromStorage(*t);
             to_json(toAdd, track);
-
             jsonObjects.push_back(toAdd);
         }
 
@@ -223,9 +223,6 @@ namespace implem {
     void TrackablesSolARImpl::init(){
         TrackablesApi::init();
         try {
-            //SolAR component initialization
-            SRef<xpcf::IComponentManager> xpcfComponentManager = xpcf::getComponentManagerInstance();
-            m_worldStorage = xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
         }
         catch (xpcf::Exception e)
         {

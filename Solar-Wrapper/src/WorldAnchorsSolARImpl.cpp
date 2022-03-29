@@ -17,9 +17,10 @@ namespace implem {
     using namespace nlohmann;
     using namespace Eigen;
 
-    WorldAnchorsSolARImpl::WorldAnchorsSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr)
+    WorldAnchorsSolARImpl::WorldAnchorsSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr, SRef<SolAR::api::storage::IWorldGraphManager> worldStorage)
         : WorldAnchorsApi(rtr)
     {
+        m_worldStorage = worldStorage;
     }
 
     void WorldAnchorsSolARImpl::add_world_anchor(const WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response)
@@ -112,7 +113,8 @@ namespace implem {
         WorldAnchor worldAnchor;
 
         //iteration over the content of the world storage
-        for (SRef<StorageWorldAnchor> a : m_worldStorage->getWorldAnchors()){
+        for (SRef<StorageWorldAnchor> a : m_worldStorage->getWorldAnchors())
+        {
             //add the current world anchor to the JSON object
             worldAnchor = fromStorage(*a);
             to_json(toAdd, worldAnchor);
@@ -129,9 +131,6 @@ namespace implem {
     {
         WorldAnchorsApi::init();
         try {
-            //SolAR component initialization
-            SRef<xpcf::IComponentManager> xpcfComponentManager = xpcf::getComponentManagerInstance();
-            m_worldStorage = xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
         }
         catch (xpcf::Exception e)
         {

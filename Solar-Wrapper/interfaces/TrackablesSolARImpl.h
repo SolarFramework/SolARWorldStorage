@@ -37,7 +37,7 @@ using namespace org::openapitools::server::model;
 
 class TrackablesSolARImpl : public org::openapitools::server::api::TrackablesApi {
     public:
-        explicit TrackablesSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr);
+        explicit TrackablesSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr, SRef<SolAR::api::storage::IWorldGraphManager> worldStorage);
         ~TrackablesSolARImpl() override = default;
 
 

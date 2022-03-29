@@ -39,12 +39,14 @@ HEADERS += \
     Solar-Wrapper/interfaces/DefaultSolARImpl.h \
     Solar-Wrapper/interfaces/TrackablesSolARImpl.h \
     Solar-Wrapper/interfaces/UnitSysConversion.h \
-    Solar-Wrapper/interfaces/WorldAnchorsSolARImpl.h
+    Solar-Wrapper/interfaces/WorldAnchorsSolARImpl.h \
+    Solar-Wrapper/interfaces/WorldLinksSolARImpl.h
 
 SOURCES += \
     Solar-Wrapper/src/DefaultSolARImpl.cpp \
     Solar-Wrapper/src/TrackablesSolARImpl.cpp \
     Solar-Wrapper/src/WorldAnchorsSolARImpl.cpp \
+    Solar-Wrapper/src/WorldLinksSolARImpl.cpp \
     Solar-Wrapper/src/main.cpp
 
 DISTFILES += \

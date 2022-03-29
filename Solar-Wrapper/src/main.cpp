@@ -26,6 +26,7 @@
 #include "xpcf/xpcf.h"
 #include "TrackablesSolARImpl.h"
 #include "WorldAnchorsSolARImpl.h"
+#include "WorldLinksSolARImpl.h"
 #include "DefaultSolARImpl.h"
 
 #define PISTACHE_SERVER_THREADS     2
@@ -92,6 +93,7 @@ int main() {
             std::cout << "Failed to load the configuration file SolARSample_World_Storage_conf.xml" << std::endl;
             return -1;
         }
+        auto worldStorage = xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
 
         Pistache::Address addr(Pistache::Ipv4::any(), Pistache::Port(8080));
 
@@ -105,11 +107,14 @@ int main() {
         opts.maxResponseSize(PISTACHE_SERVER_MAX_RESPONSE_SIZE);
         httpEndpoint->init(opts);
 
-        TrackablesSolARImpl TrackablesApiserver(router);
+        TrackablesSolARImpl TrackablesApiserver(router, worldStorage);
         TrackablesApiserver.init();
 
-        WorldAnchorsSolARImpl WorldAnchorsSolARImpl(router);
+        WorldAnchorsSolARImpl WorldAnchorsSolARImpl(router, worldStorage);
         WorldAnchorsSolARImpl.init();
+
+        WorldLinksSolARImpl WorldLinksSolARImpl(router, worldStorage);
+        WorldLinksSolARImpl.init();
 
         DefaultSolARImpl DefaultSolARImpl(router);
         DefaultSolARImpl.init();

@@ -28,7 +28,7 @@ using namespace org::openapitools::server::model;
 
 class WorldAnchorsSolARImpl : public org::openapitools::server::api::WorldAnchorsApi {
     public:
-        explicit WorldAnchorsSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr);
+        explicit WorldAnchorsSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr, SRef<SolAR::api::storage::IWorldGraphManager> worldStorage);
         ~WorldAnchorsSolARImpl() override = default;
 
 
