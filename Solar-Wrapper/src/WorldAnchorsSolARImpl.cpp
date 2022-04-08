@@ -27,20 +27,26 @@ namespace implem {
     {
         //convert all the WorldAnchor attributes into StorageWorldAnchor attributes  to create one and store it in the world storage
 
-        //TODO transform 3d
+        //creator uuid
+        xpcf::uuids::uuid creatorId = xpcf::toUUID(worldAnchor.getCreatorUUID());
+
+        //localCRS
         std::vector<float> vector = worldAnchor.getLocalCRS();
         float* array = &vector[0];
         Matrix4f matrix = Map<Matrix4f>(array);
-        Transform3Df transfo(matrix);
-
-        //creator uuid
-        xpcf::uuids::uuid creatorId = xpcf::toUUID(worldAnchor.getCreatorUUID());
+        Transform3Df localCRS(matrix);
 
         //unitsystem
         SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
 
-        //dimension
-        Vector3d dimension = Vector3d(worldAnchor.getWorldAnchorSize().data());
+        //size
+        Vector3d size = Vector3d(worldAnchor.getWorldAnchorSize().data());
+
+        //parents
+        std::map<xpcf::uuids::uuid, std::pair<SRef<StorageWorldElement>, Transform3Df>> parents{};
+
+        //childrens
+        std::map<xpcf::uuids::uuid,SRef<StorageWorldElement>> children{};
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
@@ -51,7 +57,7 @@ namespace implem {
         }
 
         //adding the newly created StorageTrackable to the worldgraph
-        xpcf::uuids::uuid worldAnchorId = m_worldStorage->addWorldAnchor(creatorId, transfo, unitSystem, dimension, keyvalueTagList);
+        xpcf::uuids::uuid worldAnchorId = m_worldStorage->addWorldAnchor(creatorId, localCRS, unitSystem, size, parents, children, keyvalueTagList);
 
 
         //initialize the json object that we will send back to the client (the trackable's id)
@@ -150,7 +156,7 @@ namespace implem {
         ret.setUUID(id);
 
         //creator UUID
-        std::string creatorUid = xpcf::uuids::to_string(worldAnchor.getAuthor());
+        std::string creatorUid = xpcf::uuids::to_string(worldAnchor.getCreatorID());
         ret.setCreatorUUID(creatorUid);
 
         //Transform3Df (localCRS)
@@ -169,7 +175,7 @@ namespace implem {
         ret.setUnit(unit);
 
         //Dimension (scale)
-        Vector3d dimension = worldAnchor.getScale();
+        Vector3d dimension = worldAnchor.getSize();
         std::vector<double> vector(3);
         for(int i = 0; i < 3; i++){
             vector[i] = dimension[0,i];

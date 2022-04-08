@@ -55,10 +55,10 @@ class WorldLinksSolARImpl : public org::openapitools::server::api::WorldLinksApi
         /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from the world elements currently linked to the given world link
         void get_attached_objects_from_uuid(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response) override;
 
-        /// @brief static method to convert StorageWorldLink (defined by the SolAR framework) to a world link (defined by OpenAPI generator)
+        /// @brief static method that returns a worldlink Json object from the informations contaiend in the worldStorage (before implementing a solution taht complies with the world link api description)
         /// @param worldLink : the StorageWorldLink to be converted
-        /// @return the converted world link
-        static WorldLink fromStorage(SolAR::datastructure::StorageWorldLink worldLink);
+        /// @return A Json containing the id of the link, the id of both attached elements and the transform between them
+        WorldLink fromStorage(SolAR::datastructure::StorageWorldLink worldLink);
 
         /// @brief initialize the API handler, creates the singleton m_worldStorage if it is not already done
         void init();

@@ -29,54 +29,43 @@ namespace implem {
     {
         //convert all the WorldLink attributes into StorageWorldLink attributes  to create one and store it in the world storage
 
+        //authorId
+        xpcf::uuids::uuid authorId = xpcf::toUUID(worldLink.getCreatorUUID());
+
         //transform 3d
         std::vector<float> vector = worldLink.getTransform();
         float* array = &vector[0];
         Matrix4f matrix = Map<Matrix4f>(array);
         Transform3Df transfo(matrix);
 
-        //creator uuid
-        xpcf::uuids::uuid creatorId = xpcf::toUUID(worldLink.getCreatorUUID());
+        //world element from
+        xpcf::uuids::uuid fromElementId = xpcf::toUUID(worldLink.getUUIDFrom());
 
-        //world element from - uuid
-        xpcf::uuids::uuid fromElement = xpcf::toUUID(worldLink.getUUIDFrom());
+        //world element from
+        xpcf::uuids::uuid toElementId = xpcf::toUUID(worldLink.getUUIDTo());
 
-        //world element from - uuid
-        xpcf::uuids::uuid toElement = xpcf::toUUID(worldLink.getUUIDTo());
-
-        //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldLink.getUnit());
-
-        //dimension
-        Vector3d dimension = Vector3d(worldLink.getLinkSize().data());
-
-        //taglist
-        std::multimap<std::string,std::string> keyvalueTagList;
-        for (std::pair<std::string,std::vector<std::string>> tag : worldLink.getKeyvalueTags()){
-            for(std::string value : tag.second){
-                keyvalueTagList.insert({tag.first,value});
-            }
-        }
-
-        //adding the newly created StorageWordLink to the worldgraph
-        xpcf::uuids::uuid worldLinkId = m_worldStorage->addWorldLink(creatorId, fromElement, toElement, transfo, unitSystem, dimension, keyvalueTagList);
+        //adding the elements to each other
+        xpcf::uuids::uuid linkId = m_worldStorage->addWorldLink(authorId, fromElementId, toElementId, transfo);
 
 
         //initialize the json object that we will send back to the client (the trackable's id)
-        std::string worldLinkIdString = xpcf::uuids::to_string(worldLinkId);
+        std::string worldLinkIdString = xpcf::uuids::to_string(linkId);
         auto jsonObjects = nlohmann::json::array();
         to_json(jsonObjects, worldLinkIdString);
 
         //send the ID to the client
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-        response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+        if (worldLinkIdString == "00000000-00000000-00000000-00000000"){
+            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong");
+        }else{
+            response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+        }
     }
 
     void WorldLinksSolARImpl::delete_world_link(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response)
     {
-        //world link uuid
-        ::xpcf::uuids::uuid id = xpcf::toUUID(worldLinkUUID);
-        if(m_worldStorage->removeWorldLink(id)){
+        auto linkId = xpcf::toUUID(worldLinkUUID);
+        if(m_worldStorage->removeWorldLink(linkId)){
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
             response.send(Pistache::Http::Code::Ok, "WorldLink removed\n");
         }
@@ -88,20 +77,20 @@ namespace implem {
 
     void WorldLinksSolARImpl::get_world_link_by_id(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response)
     {
-        //initialize the json object that we will send back to the client
+       //initialize the json object that we will send back to the client
         auto jsonObjects = nlohmann::json::array();
 
-        //look for the world link with given id
+        //look for the world anchor with given id
         xpcf::uuids::uuid id = xpcf::toUUID(worldLinkUUID);
         SRef<StorageWorldLink> storageWorldLink = m_worldStorage->getWorldLink(id);
 
-        if((storageWorldLink == nullptr) || (storageWorldLink->getID() != id)){
+        if((storageWorldLink == nullptr) || (storageWorldLink->getId() != id)){
             response.send(Pistache::Http::Code::Not_Found, "There is no world link corresponding to the given ID");
         }else {
-            //StorageWorldLink found, we convert it into a WorldLink
+            //StorageWorldAnchor found, we convert it into a WorldAnchor
             WorldLink worldLink = fromStorage(*storageWorldLink);
 
-            //add the WorldLink to our JSON object
+            //add the WorldAnchor to our JSON object
             to_json(jsonObjects, worldLink);
 
             //send the Trackable to the client
@@ -120,35 +109,12 @@ namespace implem {
         nlohmann::json toAdd;
         WorldLink worldLink;
 
-        //iteration over the content of the world storage
-        for (SRef<StorageWorldElement> a : m_worldStorage->getWorldElements()){
-
-
-            ///TEST
-            if (a->isTrackable())
-            {
-                auto storageTrackable = xpcf::utils::dynamic_pointer_cast<datastructure::StorageTrackable>(a);
-                Trackable trackFrom = TrackablesSolARImpl::fromStorage(*storageTrackable);
-                to_json(toAdd, trackFrom);
-                jsonObjects.push_back(toAdd);
-            }
-            else if(a->isWorldAnchor())
-            {
-                auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<datastructure::StorageWorldAnchor>(a);
-                WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::fromStorage(*storageWorldAnchor);
-                to_json(toAdd, worldAnchorFrom);
-                jsonObjects.push_back(toAdd);
-
-            }
-            ///FINTEST
-
-
-            /*
+        //for all the worldLinks in the worldStorage
+        for(const SRef<StorageWorldLink> &a : m_worldStorage->getWorldLinks()){
             //add the current world link to the JSON object
             worldLink = fromStorage(*a);
             to_json(toAdd, worldLink);
             jsonObjects.push_back(toAdd);
-            */
         }
 
         //send the JSON object to the client
@@ -164,11 +130,14 @@ namespace implem {
 
         // we get both elements attached to the worldLink
         xpcf::uuids::uuid linkId = xpcf::toUUID(worldLinkUUID);
-        std::vector<SRef<StorageWorldElement>> attachedElements = m_worldStorage->getConnectedElements(linkId);
-        if (attachedElements.size() == 2)
+        auto link = m_worldStorage->getWorldLink(linkId);
+        auto parentChildPair = link->getAttachedElements();
+
+        //if they are both present we add them to the JSON
+        if ( (parentChildPair.first != nullptr) && (parentChildPair.second != nullptr) )
         {
             //from element
-            SRef<StorageWorldElement> fromElement = attachedElements[0];
+            SRef<StorageWorldElement> fromElement = parentChildPair.first;
             //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
             if (fromElement->isTrackable())
             {
@@ -187,7 +156,7 @@ namespace implem {
             }
 
             //to element
-            SRef<StorageWorldElement> toElement = attachedElements[1];
+            SRef<StorageWorldElement> toElement = parentChildPair.second;
             //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
             if (toElement->isTrackable())
             {
@@ -205,21 +174,16 @@ namespace implem {
 
 
             }
-        }
-        //if there is only one connected elt (conected to non existent elts)
-        else if (attachedElements.size() == 1)
-        {
-            response.send(Pistache::Http::Code::Not_Found, "The World Link is connected to non-existent world elements");
-        }
-        //if there are no connected elements (because the link doesn't exists)
-        else
-        {
-            response.send(Pistache::Http::Code::Not_Found, "There is no world link corresponding to the given ID");
+
+
+            //send the JSON object to the client
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
+            response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
         }
 
         //send the JSON object to the client
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-        response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+        response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong, the elements connected to this link seem to be non existent or badly added");
 
     }
 
@@ -242,7 +206,7 @@ namespace implem {
         //convert all the StorageWorldLink attributes into WorldLink attibutes
 
         //world link UUID
-        std::string id = xpcf::uuids::to_string(worldLink.getID());
+        std::string id = xpcf::uuids::to_string(worldLink.getId());
         ret.setUUID(id);
 
         //creator UUID
@@ -250,14 +214,14 @@ namespace implem {
         ret.setCreatorUUID(creatorUid);
 
         //element from UUID
-        std::string elementTo = xpcf::uuids::to_string(worldLink.getFromElement());
+        std::string elementTo = xpcf::uuids::to_string(worldLink.getFromElement()->getID());
         ret.setUUIDFrom(elementTo);
 
         //element to UUID
-        std::string elementFrom = xpcf::uuids::to_string(worldLink.getToElement());
+        std::string elementFrom = xpcf::uuids::to_string(worldLink.getToElement()->getID());
         ret.setUUIDTo(elementFrom);
 
-        //Transform3Df (localCRS)
+        //transform
         Transform3Df transform3d = worldLink.getTransform();
         std::vector<float> localCRS;
         size_t nCols = transform3d.cols();
@@ -268,31 +232,23 @@ namespace implem {
            }
         ret.setTransform(localCRS);
 
+        ///======================================================================================================
+        /// The following elements are totaly made up because we don't store such attributes in the world storage
+        ///======================================================================================================
+
         //Unit system
-        UnitSystem unit = resolveUnitSystem(worldLink.getUnitSystem());
+        UnitSystem unit = resolveUnitSystem(SolAR::datastructure::UnitSystem::M);
         ret.setUnit(unit);
 
         //Dimension (scale)
-        Vector3d dimension = worldLink.getScale();
         std::vector<double> vector(3);
         for(int i = 0; i < 3; i++){
-            vector[i] = dimension[0,i];
+            vector[i] = 0;
         }
         ret.setLinkSize(vector);
 
         //keyvalue taglist (multimap to map<string,vector<string>>)
         std::map<std::string, std::vector<std::string>> tagList;
-        auto storageMap = worldLink.getTags();
-        for (auto itr = storageMap.begin() ; itr != storageMap.end(); itr++){
-                if (tagList.count(itr->first) != 0){
-                    std::vector<std::string>& vector = tagList.at(itr->first);
-                    vector.push_back(itr->second);
-                }else {
-                    std::vector<std::string> vector;
-                    vector.push_back(itr->second);
-                    tagList.insert(std::pair<std::string, std::vector<std::string>>(itr->first, vector));
-                }
-        }
         ret.setKeyvalueTags(tagList);
 
         return ret;

@@ -27,14 +27,34 @@ namespace implem {
     {
         //convert all the Trackable attributes into StorageTrackable attributes  to create one and store it in the world storage
 
-        //TODO transform 3d
+        //creator uuid
+        xpcf::uuids::uuid creatorId = xpcf::toUUID(trackable.getCreatorUUID());
+
+        //localCRS
         std::vector<float> vector = trackable.getLocalCRS();
         float* array = &vector[0];
         Matrix4f matrix = Map<Matrix4f>(array);
-        Transform3Df transfo(matrix);
+        Transform3Df localCRS(matrix);
 
-        //creator uuid
-        xpcf::uuids::uuid creatorId = xpcf::toUUID(trackable.getCreatorUUID());
+        //unitsystem
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
+
+        //dimension
+        Vector3d dimension = Vector3d(trackable.getTrackableSize().data());
+
+        //parents
+        std::map<xpcf::uuids::uuid, std::pair<SRef<StorageWorldElement>, Transform3Df>> parents{};
+
+        //childrens
+        std::map<xpcf::uuids::uuid,SRef<StorageWorldElement>> children{};
+
+        //taglist
+        std::multimap<std::string,std::string> keyvalueTagList;
+        for (std::pair<std::string,std::vector<std::string>> tag : trackable.getKeyvalueTags()){
+            for(std::string value : tag.second){
+                keyvalueTagList.insert({tag.first,value});
+            }
+        }
 
         //trackable type
         StorageTrackableType type = resolveTrackableType(trackable.getTrackableType());
@@ -45,23 +65,8 @@ namespace implem {
         //payload
         std::vector<std::byte> payload = TrackablesSolARImpl::toBytes(trackable.getTrackablePayload());
 
-
-        //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
-
-        //dimension
-        Vector3d dimension = Vector3d(trackable.getTrackableSize().data());
-
-        //taglist
-        std::multimap<std::string,std::string> keyvalueTagList;
-        for (std::pair<std::string,std::vector<std::string>> tag : trackable.getKeyvalueTags()){
-            for(std::string value : tag.second){
-                keyvalueTagList.insert({tag.first,value});
-            }
-        }
-
         //adding the newly created StorageTrackable to the worldgraph
-        xpcf::uuids::uuid trackableId = m_worldStorage->addTrackable(creatorId,type, encodingInfo, payload, transfo, unitSystem, dimension, keyvalueTagList);
+        xpcf::uuids::uuid trackableId = m_worldStorage->addTrackable(creatorId, localCRS, unitSystem, dimension, parents, children, keyvalueTagList, type, encodingInfo, payload);
 
 
         //initialize the json object that we will send back to the client (the trackable's id)
@@ -149,7 +154,7 @@ namespace implem {
         ret.setUUID(id);
 
         //creator UUID
-        std::string creatorUid = xpcf::uuids::to_string(trackable.getAuthor());
+        std::string creatorUid = xpcf::uuids::to_string(trackable.getCreatorID());
         ret.setCreatorUUID(creatorUid);
 
         //Trackable type
@@ -184,7 +189,7 @@ namespace implem {
         ret.setUnit(unit);
 
         //Dimension (scale)
-        Vector3d dimension = trackable.getScale();
+        Vector3d dimension = trackable.getSize();
         std::vector<double> vector(3);
         for(int i = 0; i < 3; i++){
             vector[i] = dimension[0,i];
