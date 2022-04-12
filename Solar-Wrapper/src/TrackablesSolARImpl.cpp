@@ -45,7 +45,7 @@ namespace implem {
         //parents
         std::map<xpcf::uuids::uuid, std::pair<SRef<StorageWorldElement>, Transform3Df>> parents{};
 
-        //childrens
+        //children
         std::map<xpcf::uuids::uuid,SRef<StorageWorldElement>> children{};
 
         //taglist
@@ -66,8 +66,13 @@ namespace implem {
         std::vector<std::byte> payload = TrackablesSolARImpl::toBytes(trackable.getTrackablePayload());
 
         //adding the newly created StorageTrackable to the worldgraph
-        xpcf::uuids::uuid trackableId = m_worldStorage->addTrackable(creatorId, localCRS, unitSystem, dimension, parents, children, keyvalueTagList, type, encodingInfo, payload);
-
+        xpcf::uuids::uuid trackableId;
+        if(m_worldStorage->addTrackable(trackableId, creatorId, localCRS, unitSystem, dimension, parents, children, keyvalueTagList, type, encodingInfo, payload) != FrameworkReturnCode::_SUCCESS)
+        {
+            //if something went wrong
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Internal_Server_Error, "something went wrong when adding the trackable to the world storage");
+        }
 
         //initialize the json object that we will send back to the client (the trackable's id)
         std::string trackableIdString = xpcf::uuids::to_string(trackableId);
@@ -75,8 +80,79 @@ namespace implem {
         to_json(jsonObjects, trackableIdString);
 
         //send the ID to the client
-        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
         response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+    }
+
+    void TrackablesSolARImpl::delete_trackable(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response)
+    {
+        //trackable uuid
+        xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
+        switch(m_worldStorage->removeTrackable(id))
+        {
+            case FrameworkReturnCode::_SUCCESS :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Ok, "Trackable removed\n");
+                break;
+            }
+
+            case FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "Trackable not found\n");
+                break;
+            }
+
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
+        }
+    }
+
+    void TrackablesSolARImpl::get_trackable_by_id(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response)
+    {
+        //initialize the json object that we will send back to the client
+        auto jsonObjects = nlohmann::json::array();
+
+        //look for the trackable with given id
+        xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
+        SRef<StorageTrackable> storageTrackable;
+
+        switch(m_worldStorage->getTrackable(id, storageTrackable))
+        {
+            case FrameworkReturnCode::_SUCCESS :
+            {
+                //StorageTrackable found, we convert it into a Trackable
+                Trackable trackable = fromStorage(*storageTrackable);
+
+                //add the Trackable to our JSON object
+                to_json(jsonObjects, trackable);
+
+                //send the Trackable to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+
+                break;
+            }
+
+            case FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "Trackable not found\n");
+                break;
+            }
+
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
+        }
+
+
     }
 
     void TrackablesSolARImpl::get_trackables(Pistache::Http::ResponseWriter &response)
@@ -89,55 +165,24 @@ namespace implem {
         nlohmann::json toAdd;
         Trackable track;
 
-        //iteration over the content of the world storage
-        for (SRef<StorageTrackable> t : m_worldStorage->getTrackables()){
-            //add the current trackable to the JSON object
-            track = fromStorage(*t);
-            to_json(toAdd, track);
-            jsonObjects.push_back(toAdd);
-        }
-
-        //send the JSON object to the client
-        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-        response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
-    }
-
-    void TrackablesSolARImpl::delete_trackable(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response)
-    {
-        //trackable uuid
-        ::xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
-        if(m_worldStorage->removeTrackable(id)){
+        std::vector<SRef<datastructure::StorageTrackable>> vector;
+        if(m_worldStorage->getTrackables(vector) != FrameworkReturnCode::_SUCCESS)
+        {
+            //Exception raised in getTrackables
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-            response.send(Pistache::Http::Code::Ok, "Trackable removed\n");
+            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong when fetching the world storage");
         }
-        else{
-            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
-        }
-    }
+        else
+        {
+            //iteration over the content of the world storage
+            for (const SRef<StorageTrackable> &t : vector){
+                //add the current trackable to the JSON object
+                track = fromStorage(*t);
+                to_json(toAdd, track);
+                jsonObjects.push_back(toAdd);
+            }
 
-    void TrackablesSolARImpl::get_trackable_by_id(const std::string &trackableUUID, Pistache::Http::ResponseWriter &response)
-    {
-        //initialize the json object that we will send back to the client
-        auto jsonObjects = nlohmann::json::array();
-
-        //look for the trackable with given id
-        xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
-        SRef<StorageTrackable> storageTrackable = m_worldStorage->getTrackable(id);
-
-        if((storageTrackable == nullptr) || (storageTrackable->getID() != id)){
-            response.send(Pistache::Http::Code::Not_Found, "There is no trackable corresponding to the given ID");
-        }else {
-            //StorageTrackable found, we convert it into a Trackable
-            Trackable trackable = fromStorage(*storageTrackable);
-
-            //add the Trackable to our JSON object
-            to_json(jsonObjects, trackable);
-
-            //also add its ID since the Trackable object (specified by Open Api generator) does not have an ID
-            jsonObjects["id"]= trackableUUID;
-
-            //send the Trackable to the client
+            //send the JSON object to the client
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
             response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
         }

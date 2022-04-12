@@ -44,34 +44,61 @@ namespace implem {
         //world element from
         xpcf::uuids::uuid toElementId = xpcf::toUUID(worldLink.getUUIDTo());
 
-        //adding the elements to each other
-        xpcf::uuids::uuid linkId = m_worldStorage->addWorldLink(authorId, fromElementId, toElementId, transfo);
+        //adding the link to the storage by calling the world storage method
+        xpcf::uuids::uuid linkId;
+        switch(m_worldStorage->addWorldLink(linkId, authorId, fromElementId, toElementId, transfo))
+        {
+            case FrameworkReturnCode::_SUCCESS :
+            {
+                //initialize the json object that we will send back to the client (the WorldAnchor's id)
+                std::string worldLinkIdString = xpcf::uuids::to_string(linkId);
+                auto jsonObjects = nlohmann::json::array();
+                to_json(jsonObjects, worldLinkIdString);
 
+                //send the ID to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+            }
 
-        //initialize the json object that we will send back to the client (the trackable's id)
-        std::string worldLinkIdString = xpcf::uuids::to_string(linkId);
-        auto jsonObjects = nlohmann::json::array();
-        to_json(jsonObjects, worldLinkIdString);
+            case FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "The connected elements were not found in the world storage\n");
+                break;
+            }
 
-        //send the ID to the client
-        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-        if (worldLinkIdString == "00000000-00000000-00000000-00000000"){
-            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong");
-        }else{
-            response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
         }
     }
 
     void WorldLinksSolARImpl::delete_world_link(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response)
     {
         auto linkId = xpcf::toUUID(worldLinkUUID);
-        if(m_worldStorage->removeWorldLink(linkId)){
-            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-            response.send(Pistache::Http::Code::Ok, "WorldLink removed\n");
-        }
-        else{
-            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+        switch(m_worldStorage->removeWorldLink(linkId))
+        {
+            case FrameworkReturnCode::_SUCCESS :
+                {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Ok, "WorldLink removed\n");
+                break;
+            }
+
+            case FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "WorldLink not found\n");
+                break;
+            }
+
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
         }
     }
 
@@ -82,26 +109,42 @@ namespace implem {
 
         //look for the world anchor with given id
         xpcf::uuids::uuid id = xpcf::toUUID(worldLinkUUID);
-        SRef<StorageWorldLink> storageWorldLink = m_worldStorage->getWorldLink(id);
+        SRef<StorageWorldLink> storageWorldLink;
 
-        if((storageWorldLink == nullptr) || (storageWorldLink->getId() != id)){
-            response.send(Pistache::Http::Code::Not_Found, "There is no world link corresponding to the given ID");
-        }else {
-            //StorageWorldAnchor found, we convert it into a WorldAnchor
-            WorldLink worldLink = fromStorage(*storageWorldLink);
+        switch(m_worldStorage->getWorldLink(id, storageWorldLink))
+        {
+            case FrameworkReturnCode::_SUCCESS :
+            {
+                //StorageWorldLink found, we convert it into a WorldLink
+                WorldLink worldLink = fromStorage(*storageWorldLink);
 
-            //add the WorldAnchor to our JSON object
-            to_json(jsonObjects, worldLink);
+                //add the WorldLink to our JSON object
+                to_json(jsonObjects, worldLink);
 
-            //send the Trackable to the client
-            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-            response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+                //send the link to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+
+                break;
+            }
+
+            case FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "WorldLink not found\n");
+                break;
+            }
+
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
         }
     }
 
     void WorldLinksSolARImpl::get_world_links(Pistache::Http::ResponseWriter &response)
     {
-
         //initialize the json object that we will send back to the client
         auto jsonObjects = nlohmann::json::array();
 
@@ -109,17 +152,27 @@ namespace implem {
         nlohmann::json toAdd;
         WorldLink worldLink;
 
-        //for all the worldLinks in the worldStorage
-        for(const SRef<StorageWorldLink> &a : m_worldStorage->getWorldLinks()){
-            //add the current world link to the JSON object
-            worldLink = fromStorage(*a);
-            to_json(toAdd, worldLink);
-            jsonObjects.push_back(toAdd);
+        std::vector<SRef<datastructure::StorageWorldLink>> vector;
+        if(m_worldStorage->getWorldLinks(vector) != FrameworkReturnCode::_SUCCESS)
+        {
+            //Exception raised in getWorldLinks
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong when fetching the world storage");
         }
+        else
+        {
+            //for all the worldLinks in the worldStorage
+            for(const SRef<StorageWorldLink> &l : vector){
+                //add the current world link to the JSON object
+                worldLink = fromStorage(*l);
+                to_json(toAdd, worldLink);
+                jsonObjects.push_back(toAdd);
+            }
 
-        //send the JSON object to the client
-        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-        response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+            //send the JSON object to the client
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
+            response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+        }
     }
 
     void WorldLinksSolARImpl::get_attached_objects_from_uuid(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response){
@@ -130,61 +183,66 @@ namespace implem {
 
         // we get both elements attached to the worldLink
         xpcf::uuids::uuid linkId = xpcf::toUUID(worldLinkUUID);
-        auto link = m_worldStorage->getWorldLink(linkId);
-        auto parentChildPair = link->getAttachedElements();
+        SRef<datastructure::StorageWorldLink> worldLink;
 
-        //if they are both present we add them to the JSON
-        if ( (parentChildPair.first != nullptr) && (parentChildPair.second != nullptr) )
+        switch(m_worldStorage->getWorldLink(linkId, worldLink))
         {
-            //from element
-            SRef<StorageWorldElement> fromElement = parentChildPair.first;
-            //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
-            if (fromElement->isTrackable())
+            case FrameworkReturnCode::_SUCCESS :
             {
-                auto storageTrackable = xpcf::utils::dynamic_pointer_cast<datastructure::StorageTrackable>(fromElement);
-                Trackable trackFrom = TrackablesSolARImpl::fromStorage(*storageTrackable);
-                to_json(toAdd, trackFrom);
-                jsonObjects.push_back(toAdd);
+                //from element
+                SRef<StorageWorldElement> fromElement = worldLink->getFromElement();
+                //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
+                if (fromElement->isTrackable())
+                {
+                    auto storageTrackable = xpcf::utils::dynamic_pointer_cast<datastructure::StorageTrackable>(fromElement);
+                    Trackable trackFrom = TrackablesSolARImpl::fromStorage(*storageTrackable);
+                    to_json(toAdd, trackFrom);
+                    jsonObjects.push_back(toAdd);
+                }
+                else if(fromElement->isWorldAnchor())
+                {
+                    auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<datastructure::StorageWorldAnchor>(fromElement);
+                    WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::fromStorage(*storageWorldAnchor);
+                    to_json(toAdd, worldAnchorFrom);
+                    jsonObjects.push_back(toAdd);
+                }
+
+                //to element
+                SRef<StorageWorldElement> toElement = worldLink->getToElement();
+                //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
+                if (toElement->isTrackable())
+                {
+                    auto storageTrackable = xpcf::utils::dynamic_pointer_cast<datastructure::StorageTrackable>(toElement);
+                    Trackable trackFrom = TrackablesSolARImpl::fromStorage(*storageTrackable);
+                    to_json(toAdd, trackFrom);
+                    jsonObjects.push_back(toAdd);
+                }
+                else if(toElement->isWorldAnchor())
+                {
+                    auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<datastructure::StorageWorldAnchor>(toElement);
+                    WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::fromStorage(*storageWorldAnchor);
+                    to_json(toAdd, worldAnchorFrom);
+                    jsonObjects.push_back(toAdd);
+                }
+
+                //send the JSON object to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
             }
-            else if(fromElement->isWorldAnchor())
+
+            case FrameworkReturnCode::_NOT_FOUND :
             {
-                auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<datastructure::StorageWorldAnchor>(fromElement);
-                WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::fromStorage(*storageWorldAnchor);
-                to_json(toAdd, worldAnchorFrom);
-                jsonObjects.push_back(toAdd);
-
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "Link not found\n");
+                break;
             }
 
-            //to element
-            SRef<StorageWorldElement> toElement = parentChildPair.second;
-            //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
-            if (toElement->isTrackable())
+            default :
             {
-                auto storageTrackable = xpcf::utils::dynamic_pointer_cast<datastructure::StorageTrackable>(toElement);
-                Trackable trackFrom = TrackablesSolARImpl::fromStorage(*storageTrackable);
-                to_json(toAdd, trackFrom);
-                jsonObjects.push_back(toAdd);
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
             }
-            else if(toElement->isWorldAnchor())
-            {
-                auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<datastructure::StorageWorldAnchor>(toElement);
-                WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::fromStorage(*storageWorldAnchor);
-                to_json(toAdd, worldAnchorFrom);
-                jsonObjects.push_back(toAdd);
-
-
-            }
-
-
-            //send the JSON object to the client
-            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-            response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
         }
-
-        //send the JSON object to the client
-        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-        response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong, the elements connected to this link seem to be non existent or badly added");
-
     }
 
     void WorldLinksSolARImpl::init()
