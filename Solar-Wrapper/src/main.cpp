@@ -14,6 +14,7 @@
 #include "pistache/endpoint.h"
 #include "pistache/http.h"
 #include "pistache/router.h"
+#include <boost/log/core.hpp>
 #ifdef __linux__
 #include <vector>
 #include <signal.h>
@@ -35,6 +36,7 @@
 
 
 namespace xpcf = org::bcom::xpcf;
+
 static Pistache::Http::Endpoint *httpEndpoint;
 #ifdef __linux__
 static void sigHandler [[noreturn]] (int sig){
@@ -67,6 +69,7 @@ static void setUpUnixSignals(std::vector<int> quitSignals) {
 #endif
 
 using namespace org::openapitools::server::implem;
+using namespace SolAR;
 
 int main() {
 
@@ -77,11 +80,13 @@ int main() {
 
     try {
 
+        #if NDEBUG
+            boost::log::core::get()->set_logging_enabled(false);
+        #endif
+
         //init the logger
-        // SolARLog::init();
-        //LOG_ADD_LOG_TO_CONSOLE();
-        //LOG_INFO("program is running");
-        std::cout << "program is running" << std::endl;
+        LOG_ADD_LOG_TO_CONSOLE();
+        LOG_INFO("program is running");
 
         /* instantiate component manager*/
         /* this is needed in dynamic mode */
@@ -89,8 +94,7 @@ int main() {
 
         if(xpcfComponentManager->load("SolARSample_World_Storage_conf.xml")!=org::bcom::xpcf::_SUCCESS)
         {
-            /*LOG_ERROR("Failed to load the configuration file SolARSample_World_Storage_conf.xml");*/
-            std::cout << "Failed to load the configuration file SolARSample_World_Storage_conf.xml" << std::endl;
+            LOG_ERROR("Failed to load the configuration file SolARSample_World_Storage_conf.xml");
             return -1;
         }
         auto worldStorage = xpcfComponentManager->resolve<SolAR::api::storage::IWorldGraphManager>();
@@ -127,7 +131,8 @@ int main() {
     }
 
     catch (xpcf::Exception e)
-    { std::cout << e.what() << std::endl;
+    {
+        LOG_ERROR("Exception raised : \n     {}", e.what())
         return -1;
     }
     return 0;
