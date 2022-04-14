@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<xpcf-registry autoAlias="true">
+    <module uuid="be14ee99-b47b-46c4-92c8-8ec9f15e5ddd" name="SolARModuleWorldStorage" description="SolARModuleWorldStorage" path="$XPCF_MODULE_ROOT/SolARBuild/SolARModuleWorldStorage/0.11.0/lib/x86_64/shared">
+        <component uuid="58826213-806b-4569-9996-f18552acc2d7" name="ETSIWorldStorage" description="ETSIWorldStorage implements SolAR::api::storage::IWorldGraphManager interface">
+                <interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+                <interface uuid="f8847b66-4bd0-48c6-ad54-e371a16fba1a" name="IWorldGraphManager" description="SolAR::api::storage::IWorldGraphManager defines the interface of a world graph manager and its representation with all its components such as trackables, worldanchors and their relations (3DF)."/>
+        </component>
+    </module>
+    <factory>
+            <bindings>
+                    <bind interface="IWorldGraphManager" to="ETSIWorldStorage" />
+            </bindings>
+    </factory>
+</xpcf-registry>
