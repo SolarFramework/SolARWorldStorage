@@ -1,21 +1,32 @@
-#include "TrackablesSolARImpl.h"
-#include "Trackable.h"
-#include "Helpers.h"
-#include "xpcf/xpcf.h"
-#include "xpcf/core/uuid.h"
-#include "UnitSysConversion.h"
+/**
+ * @copyright Copyright (c) 2021-2022 B-com http://www.b-com.com/
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <Helpers.h>
 #include <nlohmann/json.hpp>
+#include <TrackablesSolARImpl.h>
+#include <Trackable.h>
+#include <UnitSysConversion.h>
+#include <xpcf/xpcf.h>
+#include <xpcf/core/uuid.h>
 
 namespace xpcf = org::bcom::xpcf;
-namespace org {
-namespace openapitools {
-namespace server {
-namespace implem {
 
-    using namespace org::openapitools::server::model;
-    using namespace SolAR::datastructure;
-    using namespace nlohmann;
-    using namespace Eigen;
+namespace org::openapitools::server::implem
+{
+
 
     TrackablesSolARImpl::TrackablesSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr, SRef<SolAR::api::storage::IWorldGraphManager> worldStorage)
         : TrackablesApi(rtr)
@@ -23,7 +34,7 @@ namespace implem {
         m_worldStorage = worldStorage;
     }
 
-    void TrackablesSolARImpl::add_trackable(const Trackable &trackable, Pistache::Http::ResponseWriter &response)
+    void TrackablesSolARImpl::add_trackable(const org::openapitools::server::model::Trackable &trackable, Pistache::Http::ResponseWriter &response)
     {
         //convert all the Trackable attributes into StorageTrackable attributes  to create one and store it in the world storage
 
@@ -33,51 +44,55 @@ namespace implem {
         //localCRS
         std::vector<float> vector = trackable.getLocalCRS();
         float* array = &vector[0];
-        Matrix4f matrix = Map<Matrix4f>(array);
-        Transform3Df localCRS(matrix);
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix4f>(array);
+        SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
         SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
 
         //dimension
-        Vector3d dimension = Vector3d(trackable.getTrackableSize().data());
+        Eigen::Vector3d dimension = Eigen::Vector3d(trackable.getTrackableSize().data());
 
         //parents
-        std::map<xpcf::uuids::uuid, std::pair<SRef<StorageWorldElement>, Transform3Df>> parents{};
+        std::map<xpcf::uuids::uuid, std::pair<SRef<SolAR::datastructure::StorageWorldElement>, SolAR::datastructure::Transform3Df>> parents{};
 
         //children
-        std::map<xpcf::uuids::uuid,SRef<StorageWorldElement>> children{};
+        std::map<xpcf::uuids::uuid,SRef<SolAR::datastructure::StorageWorldElement>> children{};
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
-        for (std::pair<std::string,std::vector<std::string>> tag : trackable.getKeyvalueTags()){
-            for(std::string value : tag.second){
+        for (const auto &tag : trackable.getKeyvalueTags()){
+            for(const auto &value : tag.second){
                 keyvalueTagList.insert({tag.first,value});
             }
         }
 
         //trackable type
-        StorageTrackableType type = resolveTrackableType(trackable.getTrackableType());
+        SolAR::datastructure::StorageTrackableType type = SolAR::datastructure::resolveTrackableType(trackable.getTrackableType());
 
         //encoding info
-        EncodingInfo encodingInfo(trackable.getTrackableEncodingInformation().getDataFormat(), trackable.getTrackableEncodingInformation().getVersion());
+        SolAR::datastructure::EncodingInfo encodingInfo(trackable.getTrackableEncodingInformation().getDataFormat(), trackable.getTrackableEncodingInformation().getVersion());
 
         //payload
-        std::vector<std::byte> payload = TrackablesSolARImpl::toBytes(trackable.getTrackablePayload());
+        std::vector<std::byte> payload = TrackablesSolARImpl::to_bytes(trackable.getTrackablePayload());
+
+        //create the trackable
+        SRef<SolAR::datastructure::StorageTrackable> storageTrackable = xpcf::utils::make_shared<SolAR::datastructure::StorageTrackable>(creatorId, localCRS, unitSystem, dimension, parents, children, keyvalueTagList, type, encodingInfo, payload);
 
         //adding the newly created StorageTrackable to the worldgraph
         xpcf::uuids::uuid trackableId;
-        if(m_worldStorage->addTrackable(trackableId, creatorId, localCRS, unitSystem, dimension, parents, children, keyvalueTagList, type, encodingInfo, payload) != FrameworkReturnCode::_SUCCESS)
+        if(m_worldStorage->addTrackable(trackableId, storageTrackable) != SolAR::FrameworkReturnCode::_SUCCESS)
         {
             //if something went wrong
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
             response.send(Pistache::Http::Code::Internal_Server_Error, "something went wrong when adding the trackable to the world storage");
+            return;
         }
 
         //initialize the json object that we will send back to the client (the trackable's id)
         std::string trackableIdString = xpcf::uuids::to_string(trackableId);
         auto jsonObjects = nlohmann::json::array();
-        to_json(jsonObjects, trackableIdString);
+        nlohmann::to_json(jsonObjects, trackableIdString);
 
         //send the ID to the client
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
@@ -90,14 +105,14 @@ namespace implem {
         xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
         switch(m_worldStorage->removeTrackable(id))
         {
-            case FrameworkReturnCode::_SUCCESS :
+            case SolAR::FrameworkReturnCode::_SUCCESS :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
                 response.send(Pistache::Http::Code::Ok, "Trackable removed\n");
                 break;
             }
 
-            case FrameworkReturnCode::_NOT_FOUND :
+            case SolAR::FrameworkReturnCode::_NOT_FOUND :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
                 response.send(Pistache::Http::Code::Not_Found, "Trackable not found\n");
@@ -119,14 +134,14 @@ namespace implem {
 
         //look for the trackable with given id
         xpcf::uuids::uuid id = xpcf::toUUID(trackableUUID);
-        SRef<StorageTrackable> storageTrackable;
+        SRef<SolAR::datastructure::StorageTrackable> storageTrackable;
 
         switch(m_worldStorage->getTrackable(id, storageTrackable))
         {
-            case FrameworkReturnCode::_SUCCESS :
+            case SolAR::FrameworkReturnCode::_SUCCESS :
             {
                 //StorageTrackable found, we convert it into a Trackable
-                Trackable trackable = fromStorage(*storageTrackable);
+                org::openapitools::server::model::Trackable trackable = from_storage(*storageTrackable);
 
                 //add the Trackable to our JSON object
                 to_json(jsonObjects, trackable);
@@ -138,7 +153,7 @@ namespace implem {
                 break;
             }
 
-            case FrameworkReturnCode::_NOT_FOUND :
+            case SolAR::FrameworkReturnCode::_NOT_FOUND :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
                 response.send(Pistache::Http::Code::Not_Found, "Trackable not found\n");
@@ -163,21 +178,21 @@ namespace implem {
 
         //declaration of all the objects that will be changed at each iteration of the loop
         nlohmann::json toAdd;
-        Trackable track;
+        org::openapitools::server::model::Trackable track;
 
-        std::vector<SRef<datastructure::StorageTrackable>> vector;
-        if(m_worldStorage->getTrackables(vector) != FrameworkReturnCode::_SUCCESS)
+        std::vector<SRef<SolAR::datastructure::StorageTrackable>> vector;
+        if(m_worldStorage->getTrackables(vector) != SolAR::FrameworkReturnCode::_SUCCESS)
         {
             //Exception raised in getTrackables
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong when fetching the world storage");
+            response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong when fetching the trackables from the world storage");
         }
         else
         {
             //iteration over the content of the world storage
-            for (const SRef<StorageTrackable> &t : vector){
+            for (const SRef<SolAR::datastructure::StorageTrackable> &t : vector){
                 //add the current trackable to the JSON object
-                track = fromStorage(*t);
+                track = from_storage(*t);
                 to_json(toAdd, track);
                 jsonObjects.push_back(toAdd);
             }
@@ -188,9 +203,9 @@ namespace implem {
         }
     }
 
-    Trackable TrackablesSolARImpl::fromStorage(StorageTrackable trackable){
+    org::openapitools::server::model::Trackable TrackablesSolARImpl::from_storage(const SolAR::datastructure::StorageTrackable &trackable){
         //the object to be returned
-        Trackable ret;
+        org::openapitools::server::model::Trackable ret;
 
         //convert all the StorageTrackable attributes into Trackable attibutes
 
@@ -207,8 +222,8 @@ namespace implem {
         ret.setTrackableType(type);
 
         //EncodingInfo struct
-        EncodingInformationStructure encodingInfo;
-        EncodingInfo storageEncodingInfo(trackable.getEncodingInfo());
+        org::openapitools::server::model::EncodingInformationStructure encodingInfo;
+        SolAR::datastructure::EncodingInfo storageEncodingInfo(trackable.getEncodingInfo());
         encodingInfo.setDataFormat(storageEncodingInfo.getDataFormat());
         encodingInfo.setVersion(storageEncodingInfo.getVersion());
         ret.setTrackableEncodingInformation(encodingInfo);
@@ -219,24 +234,26 @@ namespace implem {
         ret.setTrackablePayload(payload);
 
         //Transform3Df (localCRS)
-        Transform3Df transform3d = trackable.getLocalCrs();
+        SolAR::datastructure::Transform3Df transform3d = trackable.getLocalCrs();
         std::vector<float> localCRS;
-        size_t nCols = transform3d.cols();
-        for (size_t i = 0; i < nCols; ++i)
-           for (size_t j = 0; j < nCols; ++j)
-           {
+        for (size_t i = 0; i < (size_t) transform3d.cols(); ++i)
+        {
+            for (size_t j = 0; j < (size_t) transform3d.rows(); ++j)
+            {
                 localCRS.push_back(transform3d(j, i));
-           }
+            }
+        }
         ret.setLocalCRS(localCRS);
 
         //Unit system
-        UnitSystem unit = resolveUnitSystem(trackable.getUnitSystem());
+        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(trackable.getUnitSystem());
         ret.setUnit(unit);
 
         //Dimension (scale)
-        Vector3d dimension = trackable.getSize();
+        Eigen::Vector3d dimension = trackable.getSize();
         std::vector<double> vector(3);
-        for(int i = 0; i < 3; i++){
+        for(int i = 0; i < 3; i++)
+        {
             vector[i] = dimension[0,i];
         }
         ret.setTrackableSize(vector);
@@ -244,14 +261,15 @@ namespace implem {
         //keyvalue taglist (multimap to map<string,vector<string>>)
         std::map<std::string, std::vector<std::string>> tagList;
         auto storageMap = trackable.getTags();
-        for (auto itr = storageMap.begin() ; itr != storageMap.end(); itr++){
-                if (tagList.count(itr->first) != 0){
-                    std::vector<std::string>& vector = tagList.at(itr->first);
-                    vector.push_back(itr->second);
+        for (const auto &tag : storageMap)
+        {
+                if (tagList.count(tag.first) != 0){
+                    std::vector<std::string>& vector = tagList.at(tag.first);
+                    vector.push_back(tag.second);
                 }else {
                     std::vector<std::string> vector;
-                    vector.push_back(itr->second);
-                    tagList.insert(std::pair<std::string, std::vector<std::string>>(itr->first, vector));
+                    vector.push_back(tag.second);
+                    tagList.insert(std::pair<std::string, std::vector<std::string>>(tag.first, vector));
                 }
         }
         ret.setKeyvalueTags(tagList);
@@ -259,7 +277,7 @@ namespace implem {
         return ret;
     }
 
-    std::vector<std::byte> TrackablesSolARImpl::toBytes(std::string const& s)
+    std::vector<std::byte> TrackablesSolARImpl::to_bytes(const std::string &s)
     {
         std::vector<std::byte> bytes;
         bytes.reserve(std::size(s));
@@ -271,8 +289,8 @@ namespace implem {
     }
 
     void TrackablesSolARImpl::init(){
-        TrackablesApi::init();
         try {
+            TrackablesApi::init();
         }
         catch (xpcf::Exception e)
         {
@@ -280,8 +298,5 @@ namespace implem {
         }
     }
 
-}
-}
-}
 }
 

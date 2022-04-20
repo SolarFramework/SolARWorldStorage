@@ -1,23 +1,34 @@
+/**
+ * @copyright Copyright (c) 2021-2022 B-com http://www.b-com.com/
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef WORLDANCHORSSOLARIMPL_H
 #define WORLDANCHORSSOLARIMPL_H
 
+#include <api/storage/IWorldGraphManager.h>
+#include <Error.h>
 #include <pistache/endpoint.h>
 #include <pistache/http.h>
 #include <pistache/router.h>
 #include <memory>
 #include <optional>
-
-#include <WorldAnchorsApi.h>
-
-
-#include <Error.h>
-#include "api/storage/IWorldGraphManager.h"
 #include <string>
+#include <WorldAnchorsApi.h>
 
 namespace org::openapitools::server::implem
 {
-
-using namespace org::openapitools::server::model;
 
 
 /**
@@ -33,28 +44,28 @@ class WorldAnchorsSolARImpl : public org::openapitools::server::api::WorldAnchor
 
 
         /// @brief API method to add a world anchor to the world storage. It converts the World anchor into a StorageWorldAnchor and stores it in the worldGraph manager
-        /// @param worldAnchor : worldAnchor to be added
-        /// @param response : the response to be sent : if it succeeds, the UUID of the newly created StorageWorldAnchor
-        void add_world_anchor(const WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response) override;
+        /// @param worldAnchor: worldAnchor to be added
+        /// @param response: the response to be sent: if it succeeds, the UUID of the newly created StorageWorldAnchor
+        void add_world_anchor(const org::openapitools::server::model::WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to delete a world anchor, it fetches the StorageWorldAnchor in the world storage Manager and removes it
-        /// @param worldAnchorUUID : the ID of the StorageWorldAnchor to be removed
-        /// @param response : the response to be sent : if it succeeds, a confirmation of the deletion of the StorageWorldAnchor
+        /// @param worldAnchorUUID: the ID of the StorageWorldAnchor to be removed
+        /// @param response: the response to be sent: if it succeeds, a confirmation of the deletion of the StorageWorldAnchor
         void delete_world_anchor(const std::string &worldAnchorUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to get a single StorageWorldAnchor from the world storage
-        /// @param worldAnchorUUID : the ID of the world anchor to be fetched
-        /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from the StorageWorldAnchor
+        /// @param worldAnchorUUID: the ID of the world anchor to be fetched
+        /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from the StorageWorldAnchor
         void get_world_anchor_by_id(const std::string &worldAnchorUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to get all the world anchors currently stored in the world storage
-        /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from all the StorageWorldAnchor
+        /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from all the StorageWorldAnchor
         void get_world_anchors(Pistache::Http::ResponseWriter &response) override;
 
         /// @brief static method to convert StorageWorldAnchor (defined by the SolAR framework) to a world anchors (defined by OpenAPI generator)
-        /// @param worldAnchor : the StorageWorldAnchor to be converted
+        /// @param worldAnchor: the StorageWorldAnchor to be converted
         /// @return the converted world anchor
-        static WorldAnchor fromStorage(SolAR::datastructure::StorageWorldAnchor worldAnchor);
+        static org::openapitools::server::model::WorldAnchor from_storage(const SolAR::datastructure::StorageWorldAnchor &worldAnchor);
 
         /// @brief initialize the API handler, creates the singleton m_worldStorage if it is not already done
         void init();

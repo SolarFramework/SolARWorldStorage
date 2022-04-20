@@ -1,4 +1,20 @@
 /**
+ * @copyright Copyright (c) 2021-2022 B-com http://www.b-com.com/
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
 * World Storage API
 * API ensuring interoperability between an authoring tool and a World Storage service
 *
@@ -10,21 +26,18 @@
 * Do not edit the class manually.
 */
 
-
-#include "pistache/endpoint.h"
-#include "pistache/http.h"
-#include "pistache/router.h"
-#include <boost/log/core.hpp>
 #ifdef __linux__
 #include <vector>
 #include <signal.h>
 #include <unistd.h>
 #endif
 
-#include "core/Log.h"
-
-
-#include "xpcf/xpcf.h"
+#include <boost/log/core.hpp>
+#include <core/Log.h>
+#include <pistache/endpoint.h>
+#include <pistache/http.h>
+#include <pistache/router.h>
+#include <xpcf/xpcf.h>
 #include "TrackablesSolARImpl.h"
 #include "WorldAnchorsSolARImpl.h"
 #include "WorldLinksSolARImpl.h"

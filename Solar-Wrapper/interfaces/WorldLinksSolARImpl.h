@@ -1,24 +1,34 @@
 #ifndef WORLDLINKSSOLARIMPL_H
+/**
+ * @copyright Copyright (c) 2021-2022 B-com http://www.b-com.com/
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #define WORLDLINKSSOLARIMPL_H
 
+#include <api/storage/IWorldGraphManager.h>
+#include <Error.h>
+#include <memory>
+#include <optional>
 #include <pistache/endpoint.h>
 #include <pistache/http.h>
 #include <pistache/router.h>
-#include <memory>
-#include <optional>
-
-#include <WorldLinksApi.h>
-
-
-#include <Error.h>
-#include "api/storage/IWorldGraphManager.h"
 #include <string>
+#include <WorldLinksApi.h>
 
 namespace org::openapitools::server::implem
 {
-
-using namespace org::openapitools::server::model;
-
 
 /**
  * @class WorldLinksSolARImpl
@@ -33,32 +43,36 @@ class WorldLinksSolARImpl : public org::openapitools::server::api::WorldLinksApi
 
 
         /// @brief API method to add a world link to the world storage. It converts the World link into a StorageWorldLink and stores it in the worldGraph manager
-        /// @param worldLink : worldLink to be added
-        /// @param response : the response to be sent : if it succeeds, the UUID of the newly created StorageWorldLink
-        void add_world_link(const WorldLink &worldLink, Pistache::Http::ResponseWriter &response) override;
+        /// @param worldLink: worldLink to be added
+        /// @param response: the response to be sent: if it succeeds, the UUID of the newly created StorageWorldLink
+        void add_world_link(const org::openapitools::server::model::WorldLink &worldLink, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to delete a world link, it fetches the StorageWorldLink in the world storage Manager and removes it
-        /// @param worldLinkUUID : the ID of the StorageWorldLink to be removed
-        /// @param response : the response to be sent : if it succeeds, a confirmation of the deletion of the StorageWorldLink
+        /// @param worldLinkUUID: the ID of the StorageWorldLink to be removed
+        /// @param response: the response to be sent: if it succeeds, a confirmation of the deletion of the StorageWorldLink
         void delete_world_link(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to get a single StorageWorldLink from the world storage
-        /// @param worldLinkUUID : the ID of the world link to be fetched
-        /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from the StorageWorldLink
+        /// @param worldLinkUUID: the ID of the world link to be fetched
+        /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from the StorageWorldLink
         void get_world_link_by_id(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief API method to get all the world links currently stored in the world storage
-        /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from all the StorageWorldLink
+        /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from all the StorageWorldLink
         void get_world_links(Pistache::Http::ResponseWriter &response) override;
 
-        /// @brief API method to get all the world elements currently linked to the given world link
-        /// @param response : the response to be sent : if it succeeds, a JSON containing all the informations from the world elements currently linked to the given world link
+        /// @brief API method to get the world elements currently linked to the given world link
+        /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from the world elements currently linked to the given world link
         void get_attached_objects_from_uuid(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief static method that returns a worldlink Json object from the informations contaiend in the worldStorage (before implementing a solution taht complies with the world link api description)
-        /// @param worldLink : the StorageWorldLink to be converted
+        /// @param worldLink: the StorageWorldLink to be converted
         /// @return A Json containing the id of the link, the id of both attached elements and the transform between them
-        WorldLink fromStorage(SolAR::datastructure::StorageWorldLink worldLink);
+        static org::openapitools::server::model::WorldLink from_storage(SolAR::datastructure::StorageWorldLink worldLink);
+
+        /// @brief method to get the world elements currently linked to the given world link
+        /// @param response: A pair containing shared pointers of the two elements connected to by the link
+        std::pair<SRef<SolAR::datastructure::StorageWorldElement>,SRef<SolAR::datastructure::StorageWorldElement>> get_attached_objects_from_uuid(const std::string &worldLinkUUID);
 
         /// @brief initialize the API handler, creates the singleton m_worldStorage if it is not already done
         void init();

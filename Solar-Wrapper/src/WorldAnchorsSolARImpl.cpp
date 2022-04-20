@@ -1,21 +1,30 @@
-#include "WorldAnchorsSolARImpl.h"
-#include "WorldAnchor.h"
-#include "Helpers.h"
-#include "UnitSysConversion.h"
-#include "xpcf/xpcf.h"
-#include "xpcf/core/uuid.h"
+/**
+ * @copyright Copyright (c) 2021-2022 B-com http://www.b-com.com/
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <Helpers.h>
 #include <nlohmann/json.hpp>
+#include <UnitSysConversion.h>
+#include <WorldAnchorsSolARImpl.h>
+#include <WorldAnchor.h>
+#include <xpcf/xpcf.h>
+#include <xpcf/core/uuid.h>
 
-namespace xpcf = org::bcom::xpcf;
-namespace org {
-namespace openapitools {
-namespace server {
-namespace implem {
+namespace org::openapitools::server::implem
+{
 
-    using namespace org::openapitools::server::model;
-    using namespace SolAR::datastructure;
-    using namespace nlohmann;
-    using namespace Eigen;
 
     WorldAnchorsSolARImpl::WorldAnchorsSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr, SRef<SolAR::api::storage::IWorldGraphManager> worldStorage)
         : WorldAnchorsApi(rtr)
@@ -23,7 +32,7 @@ namespace implem {
         m_worldStorage = worldStorage;
     }
 
-    void WorldAnchorsSolARImpl::add_world_anchor(const WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response)
+    void WorldAnchorsSolARImpl::add_world_anchor(const org::openapitools::server::model::WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response)
     {
         //convert all the WorldAnchor attributes into StorageWorldAnchor attributes  to create one and store it in the world storage
 
@@ -33,20 +42,20 @@ namespace implem {
         //localCRS
         std::vector<float> vector = worldAnchor.getLocalCRS();
         float* array = &vector[0];
-        Matrix4f matrix = Map<Matrix4f>(array);
-        Transform3Df localCRS(matrix);
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix4f>(array);
+        SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
         SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
 
         //size
-        Vector3d size = Vector3d(worldAnchor.getWorldAnchorSize().data());
+        Eigen::Vector3d size = Eigen::Vector3d(worldAnchor.getWorldAnchorSize().data());
 
         //parents
-        std::map<xpcf::uuids::uuid, std::pair<SRef<StorageWorldElement>, Transform3Df>> parents{};
+        std::map<xpcf::uuids::uuid, std::pair<SRef<SolAR::datastructure::StorageWorldElement>, SolAR::datastructure::Transform3Df>> parents{};
 
         //children
-        std::map<xpcf::uuids::uuid,SRef<StorageWorldElement>> children{};
+        std::map<xpcf::uuids::uuid,SRef<SolAR::datastructure::StorageWorldElement>> children{};
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
@@ -56,19 +65,23 @@ namespace implem {
             }
         }
 
+        //create a world anchor
+        SRef<SolAR::datastructure::StorageWorldAnchor> storageWorldAnchor = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldAnchor>(creatorId, localCRS, unitSystem, size, parents, children, keyvalueTagList);
+
         //adding the newly created StorageWorldAnchor to the worldgraph
         xpcf::uuids::uuid worldAnchorId;
-        if(m_worldStorage->addWorldAnchor(worldAnchorId, creatorId, localCRS, unitSystem, size, parents, children, keyvalueTagList) != FrameworkReturnCode::_SUCCESS)
+        if(m_worldStorage->addWorldAnchor(worldAnchorId, storageWorldAnchor) != SolAR::FrameworkReturnCode::_SUCCESS)
         {
             //if something went wrong
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
             response.send(Pistache::Http::Code::Internal_Server_Error, "something went wrong when adding the anchor to the world storage");
+            return;
         }
 
         //initialize the json object that we will send back to the client (the WorldAnchor's id)
         std::string worldAnchorIdString = xpcf::uuids::to_string(worldAnchorId);
         auto jsonObjects = nlohmann::json::array();
-        to_json(jsonObjects, worldAnchorIdString);
+        nlohmann::to_json(jsonObjects, worldAnchorIdString);
 
         //send the ID to the client
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
@@ -81,14 +94,14 @@ namespace implem {
         xpcf::uuids::uuid id = xpcf::toUUID(worldAnchorUUID);
         switch(m_worldStorage->removeWorldAnchor(id))
         {
-            case FrameworkReturnCode::_SUCCESS :
+            case SolAR::FrameworkReturnCode::_SUCCESS :
                 {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
                 response.send(Pistache::Http::Code::Ok, "WorldAnchor removed\n");
                 break;
             }
 
-            case FrameworkReturnCode::_NOT_FOUND :
+        case SolAR::FrameworkReturnCode::_NOT_FOUND :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
                 response.send(Pistache::Http::Code::Not_Found, "WorldAnchor not found\n");
@@ -110,14 +123,14 @@ namespace implem {
 
         //look for the world anchor with given id
         xpcf::uuids::uuid id = xpcf::toUUID(worldAnchorUUID);
-        SRef<StorageWorldAnchor> storageWorldAnchor;
+        SRef<SolAR::datastructure::StorageWorldAnchor> storageWorldAnchor;
 
         switch(m_worldStorage->getWorldAnchor(id, storageWorldAnchor))
         {
-            case FrameworkReturnCode::_SUCCESS :
+            case SolAR::FrameworkReturnCode::_SUCCESS :
             {
                 //StorageWorldAnchor found, we convert it into a WorldAnchor
-                WorldAnchor worldAnchor = fromStorage(*storageWorldAnchor);
+                org::openapitools::server::model::WorldAnchor worldAnchor = from_storage(*storageWorldAnchor);
 
                 //add the WorldAnchor to our JSON object
                 to_json(jsonObjects, worldAnchor);
@@ -129,7 +142,7 @@ namespace implem {
                 break;
             }
 
-            case FrameworkReturnCode::_NOT_FOUND :
+        case SolAR::FrameworkReturnCode::_NOT_FOUND :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
                 response.send(Pistache::Http::Code::Not_Found, "WorldAnchor not found\n");
@@ -151,10 +164,10 @@ namespace implem {
 
         //declaration of all the objects that will be changed at each iteration of the loop
         nlohmann::json toAdd;
-        WorldAnchor worldAnchor;
+        org::openapitools::server::model::WorldAnchor worldAnchor;
 
-        std::vector<SRef<datastructure::StorageWorldAnchor>> vector;
-        if(m_worldStorage->getWorldAnchors(vector) != FrameworkReturnCode::_SUCCESS)
+        std::vector<SRef<SolAR::datastructure::StorageWorldAnchor>> vector;
+        if(m_worldStorage->getWorldAnchors(vector) != SolAR::FrameworkReturnCode::_SUCCESS)
         {
             //Exception raised in getWorldAnchor
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
@@ -163,9 +176,9 @@ namespace implem {
         else
         {
             //iteration over the content of the world storage
-            for (const SRef<StorageWorldAnchor> &w : vector){
+            for (const SRef<SolAR::datastructure::StorageWorldAnchor> &w : vector){
                 //add the current worldAnchor to the JSON object
-                worldAnchor = fromStorage(*w);
+                worldAnchor = from_storage(*w);
                 to_json(toAdd, worldAnchor);
                 jsonObjects.push_back(toAdd);
             }
@@ -178,8 +191,9 @@ namespace implem {
 
     void WorldAnchorsSolARImpl::init()
     {
-        WorldAnchorsApi::init();
-        try {
+        try
+        {
+            WorldAnchorsApi::init();
         }
         catch (xpcf::Exception e)
         {
@@ -187,10 +201,10 @@ namespace implem {
         }
     }
 
-    WorldAnchor WorldAnchorsSolARImpl::fromStorage(StorageWorldAnchor worldAnchor)
+    org::openapitools::server::model::WorldAnchor WorldAnchorsSolARImpl::from_storage(const SolAR::datastructure::StorageWorldAnchor &worldAnchor)
     {
         //the object to be returned
-        WorldAnchor ret;
+        org::openapitools::server::model::WorldAnchor ret;
 
         //convert all the StorageWorldAnchor attributes into WorldAnchor attibutes
 
@@ -203,22 +217,23 @@ namespace implem {
         ret.setCreatorUUID(creatorUid);
 
         //Transform3Df (localCRS)
-        Transform3Df transform3d = worldAnchor.getLocalCrs();
+        SolAR::datastructure::Transform3Df transform3d = worldAnchor.getLocalCrs();
         std::vector<float> localCRS;
-        size_t nCols = transform3d.cols();
-        for (size_t i = 0; i < nCols; ++i)
-           for (size_t j = 0; j < nCols; ++j)
-           {
+        for (size_t i = 0; i < (size_t) transform3d.cols(); ++i)
+        {
+            for (size_t j = 0; j < (size_t) transform3d.rows(); ++j)
+            {
                 localCRS.push_back(transform3d(j, i));
-           }
+            }
+        }
         ret.setLocalCRS(localCRS);
 
         //Unit system
-        UnitSystem unit = resolveUnitSystem(worldAnchor.getUnitSystem());
+        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(worldAnchor.getUnitSystem());
         ret.setUnit(unit);
 
         //Dimension (scale)
-        Vector3d dimension = worldAnchor.getSize();
+        Eigen::Vector3d dimension = worldAnchor.getSize();
         std::vector<double> vector(3);
         for(int i = 0; i < 3; i++){
             vector[i] = dimension[0,i];
@@ -228,21 +243,18 @@ namespace implem {
         //keyvalue taglist (multimap to map<string,vector<string>>)
         std::map<std::string, std::vector<std::string>> tagList;
         auto storageMap = worldAnchor.getTags();
-        for (auto itr = storageMap.begin() ; itr != storageMap.end(); itr++){
-                if (tagList.count(itr->first) != 0){
-                    std::vector<std::string>& vector = tagList.at(itr->first);
-                    vector.push_back(itr->second);
+        for (const auto &tag : storageMap){
+                if (tagList.count(tag.first) != 0){
+                    std::vector<std::string>& vector = tagList.at(tag.first);
+                    vector.push_back(tag.second);
                 }else {
                     std::vector<std::string> vector;
-                    vector.push_back(itr->second);
-                    tagList.insert(std::pair<std::string, std::vector<std::string>>(itr->first, vector));
+                    vector.push_back(tag.second);
+                    tagList.insert(std::pair<std::string, std::vector<std::string>>(tag.first, vector));
                 }
         }
         ret.setKeyvalueTags(tagList);
 
         return ret;
     }
-}
-}
-}
 }
