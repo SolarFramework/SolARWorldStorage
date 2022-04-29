@@ -25,5 +25,6 @@ To be able to compile and run this server, you need to:
 - have [remaken](https://github.com/b-com-software-basis/remaken) installed
 - clone [SolAR framework](https://github.com/SolarFramework/SolARFramework) (for now, as the work is not released yet, you will have to clone the [feature/WorldGraph](https://github.com/SolarFramework/SolARFramework/tree/feature/WorldGraph) branch), perform a `remaken install` in the source directory and finally build the project
 - clone [the world storage module](https://github.com/SolarFramework/SolARModuleWorldStorage) (for now, as the work is not released yet, you will have to clone the [develop](https://github.com/SolarFramework/SolARModuleWorldStorage/tree/develop) branch) and build it
+- clone the [project](https://github.com/SolarFramework/SolARWorldStorage/tree/develop)'s repository 
 
 Once all those requirements are met, you should be able to compile your server and run it, you can try and send requests to http://localhost:8080 to try and see if it's working (e.g. POST request to see if the server is up : http://localhost:8080/ping)
