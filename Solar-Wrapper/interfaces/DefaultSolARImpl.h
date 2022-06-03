@@ -45,11 +45,12 @@ namespace org::openapitools::server::implem
             explicit DefaultSolARImpl(const std::shared_ptr<Pistache::Rest::Router>& rtr);
             ~DefaultSolARImpl() override = default;
 
+            void get_version(Pistache::Http::ResponseWriter &response) override;
+            void get_ping(Pistache::Http::ResponseWriter &response) override;
+            void get_admin(Pistache::Http::ResponseWriter &response) override;
 
         // DefaultApi interface
         private:
-            void get_version(Pistache::Http::ResponseWriter &response) override;
-            void get_ping(Pistache::Http::ResponseWriter &response) override;
      };
 
 }

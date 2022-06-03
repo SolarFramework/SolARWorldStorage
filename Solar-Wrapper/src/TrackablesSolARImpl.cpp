@@ -53,12 +53,6 @@ namespace org::openapitools::server::implem
         //dimension
         Eigen::Vector3d dimension = Eigen::Vector3d(trackable.getTrackableSize().data());
 
-        //parents
-        std::map<xpcf::uuids::uuid, std::pair<SRef<SolAR::datastructure::StorageWorldElement>, SolAR::datastructure::Transform3Df>> parents{};
-
-        //children
-        std::map<xpcf::uuids::uuid,SRef<SolAR::datastructure::StorageWorldElement>> children{};
-
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
         for (const auto &tag : trackable.getKeyvalueTags()){
@@ -76,8 +70,11 @@ namespace org::openapitools::server::implem
         //payload
         std::vector<std::byte> payload = TrackablesSolARImpl::to_bytes(trackable.getTrackablePayload());
 
+        //name
+        std::string name = trackable.getName();
+
         //create the trackable
-        SRef<SolAR::datastructure::StorageTrackable> storageTrackable = xpcf::utils::make_shared<SolAR::datastructure::StorageTrackable>(creatorId, localCRS, unitSystem, dimension, parents, children, keyvalueTagList, type, encodingInfo, payload);
+        SRef<SolAR::datastructure::StorageTrackable> storageTrackable = xpcf::utils::make_shared<SolAR::datastructure::StorageTrackable>(creatorId, localCRS, unitSystem, dimension, keyvalueTagList, type, encodingInfo, payload, name);
 
         //adding the newly created StorageTrackable to the worldgraph
         xpcf::uuids::uuid trackableId;
@@ -203,6 +200,11 @@ namespace org::openapitools::server::implem
         }
     }
 
+    void TrackablesSolARImpl::modify_trackable(const model::Trackable &trackable, Pistache::Http::ResponseWriter &response)
+    {
+
+    }
+
     org::openapitools::server::model::Trackable TrackablesSolARImpl::from_storage(const SolAR::datastructure::StorageTrackable &trackable){
         //the object to be returned
         org::openapitools::server::model::Trackable ret;
@@ -216,6 +218,9 @@ namespace org::openapitools::server::implem
         //creator UUID
         std::string creatorUid = xpcf::uuids::to_string(trackable.getCreatorID());
         ret.setCreatorUUID(creatorUid);
+
+        //name
+        ret.setName(trackable.getName());
 
         //Trackable type
         std::string type = resolveTrackableType(trackable.getType());

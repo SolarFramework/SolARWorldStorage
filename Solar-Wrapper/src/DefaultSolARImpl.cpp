@@ -27,12 +27,18 @@ namespace org::openapitools::server::implem
     void DefaultSolARImpl::get_version(Pistache::Http::ResponseWriter &response){
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
         //TODO put it in a variable
-        response.send(Pistache::Http::Code::Ok, "Version 0.0.3");
+        response.send(Pistache::Http::Code::Ok, "Version 1.0.0");
     }
 
     void DefaultSolARImpl::get_ping(Pistache::Http::ResponseWriter &response) {
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
         response.send(Pistache::Http::Code::Ok, "Pong");
+    }
+
+    void DefaultSolARImpl::get_admin(Pistache::Http::ResponseWriter &response) {
+        response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+        //TODO add verif on the module side
+        response.send(Pistache::Http::Code::Ok, "Server running and ready !");
     }
 
 }

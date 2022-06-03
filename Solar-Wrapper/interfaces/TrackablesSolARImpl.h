@@ -64,6 +64,11 @@ class TrackablesSolARImpl : public org::openapitools::server::api::TrackablesApi
         /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from all the StorageTrackables
         void get_trackables(Pistache::Http::ResponseWriter &response) override;
 
+        /// @brief API method to modify an existing trackable in the world storage.
+        /// @param trackable: trackable to be modified
+        /// @param response: the response to be sent: if it succeeds, the UUID of the modified StorageTrackable
+        void modify_trackable(const org::openapitools::server::model::Trackable &trackable, Pistache::Http::ResponseWriter &response) override;
+
         /// @brief static method to convert StorageTrackable (defined by the SolAR framework) to a Trackable (defined by OpenAPI generator)
         /// @param trackable: the StorageTrackable to be converted
         /// @return the converted trackable

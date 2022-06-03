@@ -51,61 +51,23 @@ namespace org::openapitools::server::implem {
         Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix4f>(array);
         SolAR::datastructure::Transform3Df transfo(matrix);
 
-        //world element from
+        //world element from ID
         xpcf::uuids::uuid fromElementId = xpcf::toUUID(worldLink.getUUIDFrom());
-        SRef<SolAR::datastructure::StorageWorldElement> fromElement;
-        switch(m_worldStorage->getWorldElement(fromElementId, fromElement))
-        {
-            case SolAR::FrameworkReturnCode::_SUCCESS :
-            {
-                break;
-            }
 
-            case SolAR::FrameworkReturnCode::_NOT_FOUND :
-            {
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Not_Found, "The from element was not found in the world storage\n");
-                return;
-            }
-
-            default :
-            {
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong when fetching the from element\n");
-                return;
-            }
-        }
-
-        //world element from
+        //world element to ID
         xpcf::uuids::uuid toElementId = xpcf::toUUID(worldLink.getUUIDTo());
-        SRef<SolAR::datastructure::StorageWorldElement> toElement;
-        switch(m_worldStorage->getWorldElement(toElementId, toElement))
-        {
-            case SolAR::FrameworkReturnCode::_SUCCESS :
-            {
-                break;
-            }
 
-            case SolAR::FrameworkReturnCode::_NOT_FOUND :
-            {
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Not_Found, "The to element was not found in the world storage\n");
-                return;
-            }
+        //world element from type
+        SolAR::datastructure::ElementKind fromElementType = resolveElementkind(worldLink.getTypeFrom());
 
-            default :
-            {
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong when fetching the to element\n");
-                return;
-            }
-        }
+        //world element to type
+        SolAR::datastructure::ElementKind toElementType = resolveElementkind(worldLink.getTypeTo());
 
         //adding the link to the storage by calling the world storage method
         xpcf::uuids::uuid linkId;
 
         //build the worldLink
-        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(authorId, fromElement, toElement, transfo);
+        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(authorId, fromElementId, toElementId, fromElementType, toElementType, transfo);
         switch(m_worldStorage->addWorldLink(linkId, storageWorldLink))
         {
             case SolAR::FrameworkReturnCode::_SUCCESS :
@@ -235,137 +197,8 @@ namespace org::openapitools::server::implem {
         }
     }
 
-    void WorldLinksSolARImpl::get_attached_objects_from_uuid(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response){
-
-        //initialize the json object that we will send back to the client
-        auto jsonObjects = nlohmann::json::array();
-        nlohmann::json toAdd;
-
-        // we get both elements attached to the worldLink
-        xpcf::uuids::uuid linkId = xpcf::toUUID(worldLinkUUID);
-        SRef<SolAR::datastructure::StorageWorldLink> worldLink;
-
-        switch(m_worldStorage->getWorldLink(linkId, worldLink))
-        {
-            case SolAR::FrameworkReturnCode::_SUCCESS :
-            {
-                //from element
-                SRef<SolAR::datastructure::StorageWorldElement> fromElement = worldLink->getFromElement();
-                //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
-                if (fromElement->getKind() == SolAR::datastructure::ElementKind::TRACKABLE)
-                {
-                    auto storageTrackable = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageTrackable>(fromElement);
-                    org::openapitools::server::model::Trackable trackFrom = TrackablesSolARImpl::from_storage(*storageTrackable);
-                    to_json(toAdd, trackFrom);
-                    jsonObjects.push_back(toAdd);
-                }
-                else if(fromElement->getKind() == SolAR::datastructure::ElementKind::ANCHOR)
-                {
-                    auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageWorldAnchor>(fromElement);
-                    org::openapitools::server::model::WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::from_storage(*storageWorldAnchor);
-                    to_json(toAdd, worldAnchorFrom);
-                    jsonObjects.push_back(toAdd);
-                }
-
-                //to element
-                SRef<SolAR::datastructure::StorageWorldElement> toElement = worldLink->getToElement();
-                //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
-                if (toElement->getKind() == SolAR::datastructure::ElementKind::TRACKABLE)
-                {
-                    auto storageTrackable = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageTrackable>(toElement);
-                    org::openapitools::server::model::Trackable trackTo = TrackablesSolARImpl::from_storage(*storageTrackable);
-                    to_json(toAdd, trackTo);
-                    jsonObjects.push_back(toAdd);
-                }
-                else if(toElement->getKind() == SolAR::datastructure::ElementKind::ANCHOR)
-                {
-                    auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageWorldAnchor>(toElement);
-                    org::openapitools::server::model::WorldAnchor worldAnchorTo = WorldAnchorsSolARImpl::from_storage(*storageWorldAnchor);
-                    to_json(toAdd, worldAnchorTo);
-                    jsonObjects.push_back(toAdd);
-                }
-
-                //send the JSON object to the client
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
-                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
-            }
-
-            case SolAR::FrameworkReturnCode::_NOT_FOUND :
-            {
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Not_Found, "Link not found\n");
-                break;
-            }
-
-            default :
-            {
-                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
-            }
-        }
-    }
-
-    std::pair<SRef<SolAR::datastructure::StorageWorldElement>,SRef<SolAR::datastructure::StorageWorldElement>> WorldLinksSolARImpl::get_attached_objects_from_uuid(const std::string &worldLinkUUID)
+    void WorldLinksSolARImpl::modify_world_link(const model::WorldLink &worldLink, Pistache::Http::ResponseWriter &response)
     {
-        // we get both elements attached to the worldLink
-        xpcf::uuids::uuid linkId = xpcf::toUUID(worldLinkUUID);
-        SRef<SolAR::datastructure::StorageWorldLink> worldLink;
-        SRef<SolAR::datastructure::StorageWorldElement> fromElement;
-        SRef<SolAR::datastructure::StorageWorldElement> toElement;
-
-
-        switch(m_worldStorage->getWorldLink(linkId, worldLink))
-        {
-            case SolAR::FrameworkReturnCode::_SUCCESS :
-            {
-                //from element
-                fromElement = worldLink->getFromElement();
-
-
-                /*
-                //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
-                if (fromElement->getKind() == SolAR::datastructure::ElementKind::TRACKABLE)
-                {
-                    auto storageTrackable = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageTrackable>(fromElement);
-                }
-                else if(fromElement->getKind() == SolAR::datastructure::ElementKind::ANCHOR)
-                {
-                    auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageWorldAnchor>(fromElement);
-                    org::openapitools::server::model::WorldAnchor worldAnchorFrom = WorldAnchorsSolARImpl::from_storage(*storageWorldAnchor);
-                    to_json(toAdd, worldAnchorFrom);
-                    jsonObjects.push_back(toAdd);
-                }*/
-
-                //to element
-                toElement = worldLink->getToElement();
-                /*
-                //since there is no type definition for worldElement in the api specifcation we have to check what kind of element it is and cast it to call the fromStorage of the corresponding class
-                if (toElement->getKind() == SolAR::datastructure::ElementKind::TRACKABLE)
-                {
-                    auto storageTrackable = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageTrackable>(toElement);
-                    org::openapitools::server::model::Trackable trackTo = TrackablesSolARImpl::from_storage(*storageTrackable);
-                    to_json(toAdd, trackTo);
-                    jsonObjects.push_back(toAdd);
-                }
-                else if(toElement->getKind() == SolAR::datastructure::ElementKind::ANCHOR)
-                {
-                    auto storageWorldAnchor = xpcf::utils::dynamic_pointer_cast<SolAR::datastructure::StorageWorldAnchor>(toElement);
-                    org::openapitools::server::model::WorldAnchor worldAnchorTo = WorldAnchorsSolARImpl::from_storage(*storageWorldAnchor);
-                    to_json(toAdd, worldAnchorTo);
-                    jsonObjects.push_back(toAdd);
-                }*/
-
-            }
-
-            case SolAR::FrameworkReturnCode::_NOT_FOUND :
-            {
-                break;
-            }
-
-            default :
-            {
-            }
-        }
 
     }
 
@@ -397,12 +230,20 @@ namespace org::openapitools::server::implem {
         ret.setCreatorUUID(creatorUid);
 
         //element from UUID
-        std::string elementTo = xpcf::uuids::to_string(worldLink.getFromElement()->getID());
+        std::string elementTo = xpcf::uuids::to_string(worldLink.getUuidFrom());
         ret.setUUIDFrom(elementTo);
 
         //element to UUID
-        std::string elementFrom = xpcf::uuids::to_string(worldLink.getToElement()->getID());
+        std::string elementFrom = xpcf::uuids::to_string(worldLink.getUuidTo());
         ret.setUUIDTo(elementFrom);
+
+        //element from Type
+        model::ObjectType typeFrom = resolveElementkind(worldLink.getTypeFrom());
+        ret.setTypeFrom(typeFrom);
+
+        //element to Type
+        model::ObjectType typeTo = resolveElementkind(worldLink.getTypeTo());
+        ret.setTypeTo(typeTo);
 
         //transform
         SolAR::datastructure::Transform3Df transform3d = worldLink.getTransform();
@@ -414,25 +255,48 @@ namespace org::openapitools::server::implem {
            }
         ret.setTransform(localCRS);
 
-        ///======================================================================================================
-        /// The following elements are totaly made up because we don't store such attributes in the world storage
-        ///======================================================================================================
-
         //Unit system
         org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(SolAR::datastructure::UnitSystem::M);
         ret.setUnit(unit);
-
-        //Dimension (scale)
-        std::vector<double> vector(3);
-        for(int i = 0; i < 3; i++){
-            vector[i] = 0;
-        }
-        ret.setLinkSize(vector);
 
         //keyvalue taglist (multimap to map<string,vector<string>>)
         std::map<std::string, std::vector<std::string>> tagList;
         ret.setKeyvalueTags(tagList);
 
         return ret;
+    }
+
+    model::ObjectType WorldLinksSolARImpl::resolveElementkind(SolAR::datastructure::ElementKind kind)
+    {
+        model::ObjectType ret;
+        switch(kind)
+        {
+            case SolAR::datastructure::ElementKind::ANCHOR :
+                ret.setValue(model::ObjectType::eObjectType::WORLDANCHOR);
+                return ret;
+                break;
+            case SolAR::datastructure::ElementKind::TRACKABLE :
+                ret.setValue(model::ObjectType::eObjectType::TRACKABLE);
+                return ret;
+                break;
+            default :
+                ret.setValue(model::ObjectType::eObjectType::NOTIDENTIFIED);
+                return ret;
+        }
+    }
+
+    SolAR::datastructure::ElementKind WorldLinksSolARImpl::resolveElementkind(model::ObjectType kind)
+    {
+        switch(kind.getValue())
+        {
+            case model::ObjectType::eObjectType::WORLDANCHOR :
+                return SolAR::datastructure::ElementKind::ANCHOR;
+                break;
+            case model::ObjectType::eObjectType::TRACKABLE :
+                return SolAR::datastructure::ElementKind::TRACKABLE;
+                break;
+            default :
+                return SolAR::datastructure::ElementKind::INVALID;
+        }
     }
 }

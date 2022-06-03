@@ -51,12 +51,6 @@ namespace org::openapitools::server::implem
         //size
         Eigen::Vector3d size = Eigen::Vector3d(worldAnchor.getWorldAnchorSize().data());
 
-        //parents
-        std::map<xpcf::uuids::uuid, std::pair<SRef<SolAR::datastructure::StorageWorldElement>, SolAR::datastructure::Transform3Df>> parents{};
-
-        //children
-        std::map<xpcf::uuids::uuid,SRef<SolAR::datastructure::StorageWorldElement>> children{};
-
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
         for (std::pair<std::string,std::vector<std::string>> tag : worldAnchor.getKeyvalueTags()){
@@ -65,8 +59,11 @@ namespace org::openapitools::server::implem
             }
         }
 
+        //name
+        std::string name = worldAnchor.getName();
+
         //create a world anchor
-        SRef<SolAR::datastructure::StorageWorldAnchor> storageWorldAnchor = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldAnchor>(creatorId, localCRS, unitSystem, size, parents, children, keyvalueTagList);
+        SRef<SolAR::datastructure::StorageWorldAnchor> storageWorldAnchor = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldAnchor>(creatorId, localCRS, unitSystem, size, keyvalueTagList, name);
 
         //adding the newly created StorageWorldAnchor to the worldgraph
         xpcf::uuids::uuid worldAnchorId;
@@ -189,6 +186,11 @@ namespace org::openapitools::server::implem
         }
     }
 
+    void WorldAnchorsSolARImpl::modify_world_anchor(const model::WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response)
+    {
+
+    }
+
     void WorldAnchorsSolARImpl::init()
     {
         try
@@ -211,6 +213,9 @@ namespace org::openapitools::server::implem
         //world anchor UUID
         std::string id = xpcf::uuids::to_string(worldAnchor.getID());
         ret.setUUID(id);
+
+        //name
+        ret.setName(worldAnchor.getName());
 
         //creator UUID
         std::string creatorUid = xpcf::uuids::to_string(worldAnchor.getCreatorID());
