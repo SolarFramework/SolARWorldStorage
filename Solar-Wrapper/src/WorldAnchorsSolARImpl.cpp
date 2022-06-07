@@ -41,8 +41,7 @@ namespace org::openapitools::server::implem
 
         //localCRS
         std::vector<float> vector = worldAnchor.getLocalCRS();
-        float* array = &vector[0];
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix4f>(array);
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
@@ -188,7 +187,70 @@ namespace org::openapitools::server::implem
 
     void WorldAnchorsSolARImpl::modify_world_anchor(const model::WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response)
     {
+        //convert all the WorldAnchor attributes into StorageWorldAnchor attributes  to create one and store it in the world storage
 
+        //creator uuid
+        xpcf::uuids::uuid creatorId = xpcf::toUUID(worldAnchor.getCreatorUUID());
+
+        //localCRS
+        std::vector<float> vector = worldAnchor.getLocalCRS();
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        SolAR::datastructure::Transform3Df localCRS(matrix);
+
+        //unitsystem
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
+
+        //size
+        Eigen::Vector3d size = Eigen::Vector3d(worldAnchor.getWorldAnchorSize().data());
+
+        //taglist
+        std::multimap<std::string,std::string> keyvalueTagList;
+        for (std::pair<std::string,std::vector<std::string>> tag : worldAnchor.getKeyvalueTags()){
+            for(std::string value : tag.second){
+                keyvalueTagList.insert({tag.first,value});
+            }
+        }
+
+        //name
+        std::string name = worldAnchor.getName();
+
+        //id
+        xpcf::uuids::uuid id = xpcf::toUUID(worldAnchor.getUUID());
+
+        //create a world anchor
+        SRef<SolAR::datastructure::StorageWorldAnchor> storageWorldAnchor = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldAnchor>(id, creatorId, localCRS, unitSystem, size, keyvalueTagList, name);
+
+        //adding the newly created StorageWorldAnchor to the worldgraph
+        xpcf::uuids::uuid worldAnchorId;
+        switch(m_worldStorage->modifyWorldAnchor(worldAnchorId, storageWorldAnchor))
+        {
+            case SolAR::FrameworkReturnCode::_SUCCESS :
+            {
+                //initialize the json object that we will send back to the client (the WorldAnchor's id)
+                std::string worldAnchorIdString = xpcf::uuids::to_string(worldAnchorId);
+                auto jsonObjects = nlohmann::json::array();
+                nlohmann::to_json(jsonObjects, worldAnchorIdString);
+
+                //send the ID to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+                break;
+            }
+
+        case SolAR::FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "WorldAnchor not found\n");
+                break;
+            }
+
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
+        }
+        return;
     }
 
     void WorldAnchorsSolARImpl::init()
@@ -223,12 +285,13 @@ namespace org::openapitools::server::implem
 
         //Transform3Df (localCRS)
         SolAR::datastructure::Transform3Df transform3d = worldAnchor.getLocalCrs();
+        Eigen::Matrix4f matrix = transform3d.matrix();
         std::vector<float> localCRS;
-        for (size_t i = 0; i < (size_t) transform3d.cols(); ++i)
+        for (size_t i = 0; i < (size_t) matrix.rows() + 1; i++)
         {
-            for (size_t j = 0; j < (size_t) transform3d.rows(); ++j)
+            for (size_t j = 0; j < (size_t) matrix.cols() + 1; j++)
             {
-                localCRS.push_back(transform3d(j, i));
+                localCRS.push_back(matrix(i, j));
             }
         }
         ret.setLocalCRS(localCRS);

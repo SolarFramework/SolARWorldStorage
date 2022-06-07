@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <Eigen/Eigen>
 #include <Helpers.h>
 #include <nlohmann/json.hpp>
 #include <TrackablesSolARImpl.h>
@@ -43,8 +44,7 @@ namespace org::openapitools::server::implem
 
         //localCRS
         std::vector<float> vector = trackable.getLocalCRS();
-        float* array = &vector[0];
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix4f>(array);
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
@@ -202,7 +202,84 @@ namespace org::openapitools::server::implem
 
     void TrackablesSolARImpl::modify_trackable(const model::Trackable &trackable, Pistache::Http::ResponseWriter &response)
     {
+        //convert all the Trackable attributes into StorageTrackable attributes  to create one and store it in the world storage
 
+        //creator uuid
+        xpcf::uuids::uuid creatorId = xpcf::toUUID(trackable.getCreatorUUID());
+
+        //localCRS
+        std::vector<float> vector = trackable.getLocalCRS();
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        SolAR::datastructure::Transform3Df localCRS(matrix);
+
+        //unitsystem
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
+
+        //dimension
+        Eigen::Vector3d dimension = Eigen::Vector3d(trackable.getTrackableSize().data());
+
+        //taglist
+        std::multimap<std::string,std::string> keyvalueTagList;
+        for (const auto &tag : trackable.getKeyvalueTags()){
+            for(const auto &value : tag.second){
+                keyvalueTagList.insert({tag.first,value});
+            }
+        }
+
+        //trackable type
+        SolAR::datastructure::StorageTrackableType type = SolAR::datastructure::resolveTrackableType(trackable.getTrackableType());
+
+        //encoding info
+        SolAR::datastructure::EncodingInfo encodingInfo(trackable.getTrackableEncodingInformation().getDataFormat(), trackable.getTrackableEncodingInformation().getVersion());
+
+        //payload
+        std::vector<std::byte> payload = TrackablesSolARImpl::to_bytes(trackable.getTrackablePayload());
+
+        //name
+        std::string name = trackable.getName();
+
+        //id
+        boost::uuids::uuid id = xpcf::toUUID(trackable.getUUID());
+
+        //create the trackable
+        SRef<SolAR::datastructure::StorageTrackable> storageTrackable = xpcf::utils::make_shared<SolAR::datastructure::StorageTrackable>(id, creatorId, localCRS, unitSystem, dimension, keyvalueTagList, type, encodingInfo, payload, name);
+
+        //adding the newly created StorageTrackable to the worldgraph
+        xpcf::uuids::uuid trackableId;
+        switch(m_worldStorage->modifyTrackable(trackableId, storageTrackable))
+        {
+            case SolAR::FrameworkReturnCode::_SUCCESS :
+            {
+                //initialize the json object that we will send back to the client (the trackable's id)
+                std::string trackableIdString = xpcf::uuids::to_string(trackableId);
+                auto jsonObjects = nlohmann::json::array();
+                nlohmann::to_json(jsonObjects, trackableIdString);
+
+                //send the ID to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Application, Json));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+
+                break;
+            }
+
+            case SolAR::FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "Trackable not found\n");
+
+                break;
+            }
+
+            default :
+            {
+            //if something went wrong
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Internal_Server_Error, "something went wrong when modifying the trackable to the world storage");
+
+            }
+        }
+
+        return;
     }
 
     org::openapitools::server::model::Trackable TrackablesSolARImpl::from_storage(const SolAR::datastructure::StorageTrackable &trackable){
@@ -240,12 +317,13 @@ namespace org::openapitools::server::implem
 
         //Transform3Df (localCRS)
         SolAR::datastructure::Transform3Df transform3d = trackable.getLocalCrs();
+        Eigen::Matrix4f matrix = transform3d.matrix();
         std::vector<float> localCRS;
-        for (size_t i = 0; i < (size_t) transform3d.cols(); ++i)
+        for (size_t i = 0; i < (size_t) matrix.rows(); i++)
         {
-            for (size_t j = 0; j < (size_t) transform3d.rows(); ++j)
+            for (size_t j = 0; j < (size_t) matrix.cols(); j++)
             {
-                localCRS.push_back(transform3d(j, i));
+                localCRS.push_back(matrix(i, j));
             }
         }
         ret.setLocalCRS(localCRS);

@@ -47,8 +47,7 @@ namespace org::openapitools::server::implem {
 
         //transform 3d
         std::vector<float> vector = worldLink.getTransform();
-        float* array = &vector[0];
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix4f>(array);
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df transfo(matrix);
 
         //world element from ID
@@ -199,7 +198,66 @@ namespace org::openapitools::server::implem {
 
     void WorldLinksSolARImpl::modify_world_link(const model::WorldLink &worldLink, Pistache::Http::ResponseWriter &response)
     {
+        //convert all the WorldLink attributes into StorageWorldLink attributes  to create one and store it in the world storage
 
+        //authorId
+        xpcf::uuids::uuid authorId = xpcf::toUUID(worldLink.getCreatorUUID());
+
+        //transform 3d
+        std::vector<float> vector = worldLink.getTransform();
+        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        SolAR::datastructure::Transform3Df transfo(matrix);
+
+        //world element from ID
+        xpcf::uuids::uuid fromElementId = xpcf::toUUID(worldLink.getUUIDFrom());
+
+        //world element to ID
+        xpcf::uuids::uuid toElementId = xpcf::toUUID(worldLink.getUUIDTo());
+
+        //world element from type
+        SolAR::datastructure::ElementKind fromElementType = resolveElementkind(worldLink.getTypeFrom());
+
+        //world element to type
+        SolAR::datastructure::ElementKind toElementType = resolveElementkind(worldLink.getTypeTo());
+
+        //id
+        xpcf::uuids::uuid id = xpcf::toUUID(worldLink.getUUID());
+
+
+        //build the worldLink
+        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(id, authorId, fromElementId, toElementId, fromElementType, toElementType, transfo);
+
+
+        //adding the link to the storage by calling the world storage method
+        xpcf::uuids::uuid linkId;
+        switch(m_worldStorage->modifyWorldLink(linkId, storageWorldLink))
+        {
+            case SolAR::FrameworkReturnCode::_SUCCESS :
+            {
+                //initialize the json object that we will send back to the client (the WorldAnchor's id)
+                std::string worldLinkIdString = xpcf::uuids::to_string(linkId);
+                auto jsonObjects = nlohmann::json::array();
+                nlohmann::to_json(jsonObjects, worldLinkIdString);
+
+                //send the ID to the client
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Ok, jsonObjects.dump());
+                break;
+            }
+
+            case SolAR::FrameworkReturnCode::_NOT_FOUND :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Not_Found, "WorldLink not found\n");
+                break;
+            }
+
+            default :
+            {
+                response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+                response.send(Pistache::Http::Code::Internal_Server_Error, "Something went wrong\n");
+            }
+        }
     }
 
     void WorldLinksSolARImpl::init()
@@ -247,12 +305,15 @@ namespace org::openapitools::server::implem {
 
         //transform
         SolAR::datastructure::Transform3Df transform3d = worldLink.getTransform();
+        Eigen::Matrix4f matrix = transform3d.matrix();
         std::vector<float> localCRS;
-        for (size_t i = 0; i < (size_t) transform3d.cols(); ++i)
-           for (size_t j = 0; j < (size_t) transform3d.cols(); ++j)
+        for (size_t i = 0; i < (size_t) matrix.rows(); i++)
+        {
+           for (size_t j = 0; j < (size_t) matrix.cols(); j++)
            {
-                localCRS.push_back(transform3d(j, i));
+                localCRS.push_back(matrix(i, j));
            }
+        }
         ret.setTransform(localCRS);
 
         //Unit system
