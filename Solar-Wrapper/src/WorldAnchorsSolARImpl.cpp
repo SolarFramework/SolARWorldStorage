@@ -44,11 +44,11 @@ namespace org::openapitools::server::implem
         Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
-        //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
-
         //size
         Eigen::Vector3d size = Eigen::Vector3d(worldAnchor.getWorldAnchorSize().data());
+
+        //unitsystem
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
@@ -287,9 +287,9 @@ namespace org::openapitools::server::implem
         SolAR::datastructure::Transform3Df transform3d = worldAnchor.getLocalCrs();
         Eigen::Matrix4f matrix = transform3d.matrix();
         std::vector<float> localCRS;
-        for (size_t i = 0; i < (size_t) matrix.rows() + 1; i++)
+        for (size_t i = 0; i < (size_t) matrix.rows(); i++)
         {
-            for (size_t j = 0; j < (size_t) matrix.cols() + 1; j++)
+            for (size_t j = 0; j < (size_t) matrix.cols(); j++)
             {
                 localCRS.push_back(matrix(i, j));
             }

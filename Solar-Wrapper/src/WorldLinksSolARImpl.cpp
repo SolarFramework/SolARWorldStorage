@@ -56,6 +56,13 @@ namespace org::openapitools::server::implem {
         //world element to ID
         xpcf::uuids::uuid toElementId = xpcf::toUUID(worldLink.getUUIDTo());
 
+        //check if the link connects a single element
+        if(fromElementId == toElementId)
+        {
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Bad_Request, "An element can not be connected to himself\n");
+        }
+
         //world element from type
         SolAR::datastructure::ElementKind fromElementType = resolveElementkind(worldLink.getTypeFrom());
 
@@ -65,8 +72,19 @@ namespace org::openapitools::server::implem {
         //adding the link to the storage by calling the world storage method
         xpcf::uuids::uuid linkId;
 
+        //unitsystem
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldLink.getUnit());
+
+        //taglist
+        std::multimap<std::string,std::string> keyvalueTagList;
+        for (std::pair<std::string,std::vector<std::string>> tag : worldLink.getKeyvalueTags()){
+            for(std::string value : tag.second){
+                keyvalueTagList.insert({tag.first,value});
+            }
+        }
+
         //build the worldLink
-        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(authorId, fromElementId, toElementId, fromElementType, toElementType, transfo);
+        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(authorId, fromElementId, toElementId, fromElementType, toElementType, transfo, unitSystem, keyvalueTagList);
         switch(m_worldStorage->addWorldLink(linkId, storageWorldLink))
         {
             case SolAR::FrameworkReturnCode::_SUCCESS :
@@ -214,18 +232,36 @@ namespace org::openapitools::server::implem {
         //world element to ID
         xpcf::uuids::uuid toElementId = xpcf::toUUID(worldLink.getUUIDTo());
 
+        //check if the link connects a single element
+        if(fromElementId == toElementId)
+        {
+            response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
+            response.send(Pistache::Http::Code::Bad_Request, "An element can not be connected to himself\n");
+        }
+
         //world element from type
         SolAR::datastructure::ElementKind fromElementType = resolveElementkind(worldLink.getTypeFrom());
 
         //world element to type
         SolAR::datastructure::ElementKind toElementType = resolveElementkind(worldLink.getTypeTo());
 
+        //unitsystem
+        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldLink.getUnit());
+
+        //taglist
+        std::multimap<std::string,std::string> keyvalueTagList;
+        for (std::pair<std::string,std::vector<std::string>> tag : worldLink.getKeyvalueTags()){
+            for(std::string value : tag.second){
+                keyvalueTagList.insert({tag.first,value});
+            }
+        }
+
         //id
         xpcf::uuids::uuid id = xpcf::toUUID(worldLink.getUUID());
 
 
         //build the worldLink
-        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(id, authorId, fromElementId, toElementId, fromElementType, toElementType, transfo);
+        xpcf::utils::shared_ptr<SolAR::datastructure::StorageWorldLink> storageWorldLink = xpcf::utils::make_shared<SolAR::datastructure::StorageWorldLink>(id, authorId, fromElementId, toElementId, fromElementType, toElementType, transfo, unitSystem, keyvalueTagList);
 
 
         //adding the link to the storage by calling the world storage method
@@ -248,7 +284,7 @@ namespace org::openapitools::server::implem {
             case SolAR::FrameworkReturnCode::_NOT_FOUND :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Not_Found, "WorldLink not found\n");
+                response.send(Pistache::Http::Code::Not_Found, "Either the WorldLink was not found, either the elements it now connects were not found\n");
                 break;
             }
 
@@ -317,11 +353,22 @@ namespace org::openapitools::server::implem {
         ret.setTransform(localCRS);
 
         //Unit system
-        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(SolAR::datastructure::UnitSystem::M);
+        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(worldLink.getUnitSystem());
         ret.setUnit(unit);
 
         //keyvalue taglist (multimap to map<string,vector<string>>)
         std::map<std::string, std::vector<std::string>> tagList;
+        auto storageMap = worldLink.getTags();
+        for (const auto &tag : storageMap){
+                if (tagList.count(tag.first) != 0){
+                    std::vector<std::string>& vector = tagList.at(tag.first);
+                    vector.push_back(tag.second);
+                }else {
+                    std::vector<std::string> vector;
+                    vector.push_back(tag.second);
+                    tagList.insert(std::pair<std::string, std::vector<std::string>>(tag.first, vector));
+                }
+        }
         ret.setKeyvalueTags(tagList);
 
         return ret;
