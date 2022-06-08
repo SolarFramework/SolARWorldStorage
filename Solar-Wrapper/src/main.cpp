@@ -117,24 +117,21 @@ int main() {
         httpEndpoint = new Pistache::Http::Endpoint((addr));
         auto router = std::make_shared<Pistache::Rest::Router>();
 
-        auto opts = Pistache::Http::Endpoint::options()
-            .threads(PISTACHE_SERVER_THREADS);
+        auto opts = Pistache::Http::Endpoint::options().threads(PISTACHE_SERVER_THREADS);
         opts.flags(Pistache::Tcp::Options::ReuseAddr);
         opts.maxRequestSize(PISTACHE_SERVER_MAX_REQUEST_SIZE);
         opts.maxResponseSize(PISTACHE_SERVER_MAX_RESPONSE_SIZE);
         httpEndpoint->init(opts);
 
+
+        DefaultSolARImpl DefaultApiserver(router);
+        DefaultApiserver.init();
         TrackablesSolARImpl TrackablesApiserver(router, worldStorage);
         TrackablesApiserver.init();
-
-        WorldAnchorsSolARImpl WorldAnchorsSolARImpl(router, worldStorage);
-        WorldAnchorsSolARImpl.init();
-
-        WorldLinksSolARImpl WorldLinksSolARImpl(router, worldStorage);
-        WorldLinksSolARImpl.init();
-
-        DefaultSolARImpl DefaultSolARImpl(router);
-        DefaultSolARImpl.init();
+        WorldAnchorsSolARImpl WorldAnchorsApiserver(router, worldStorage);
+        WorldAnchorsApiserver.init();
+        WorldLinksSolARImpl WorldLinksApiserver(router, worldStorage);
+        WorldLinksApiserver.init();
 
         httpEndpoint->setHandler(router->handler());
         httpEndpoint->serve();

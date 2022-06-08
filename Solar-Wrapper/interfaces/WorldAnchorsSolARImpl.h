@@ -62,6 +62,11 @@ class WorldAnchorsSolARImpl : public org::openapitools::server::api::WorldAnchor
         /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from all the StorageWorldAnchor
         void get_world_anchors(Pistache::Http::ResponseWriter &response) override;
 
+        /// @brief API method to modify an existing world anchor in the world storage.
+        /// @param worldAnchor: worldAnchor to be modified
+        /// @param response: the response to be sent: if it succeeds, the UUID of the modified worldAnchor
+        void modify_world_anchor(const org::openapitools::server::model::WorldAnchor &worldAnchor, Pistache::Http::ResponseWriter &response) override;
+
         /// @brief static method to convert StorageWorldAnchor (defined by the SolAR framework) to a world anchors (defined by OpenAPI generator)
         /// @param worldAnchor: the StorageWorldAnchor to be converted
         /// @return the converted world anchor

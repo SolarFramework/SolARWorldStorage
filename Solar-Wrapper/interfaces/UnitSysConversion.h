@@ -33,7 +33,7 @@ namespace org::openapitools::server::implem
     /// @brief method to swap between UnitSystem enums (SolAR & OPenAPI)
     /// @param the UnitSystem in openAPI format
     /// @return the UnitSystem in SolAR format
-    static SolAR::datastructure::UnitSystem resolveUnitSystem(org::openapitools::server::model::UnitSystem input){
+    static SolAR::datastructure::UnitSystem resolve_unitSystem(org::openapitools::server::model::UnitSystem input){
         switch(input.getValue()){
             case org::openapitools::server::model::UnitSystem::eUnitSystem::MM:
             {
@@ -100,7 +100,7 @@ namespace org::openapitools::server::implem
     /// @brief method to swap between UnitSystem enums (OPenAPI & SolAR)
     /// @param the UnitSystem in SolAR format
     /// @return the UnitSystem in openAPI format
-    static org::openapitools::server::model::UnitSystem resolveUnitSystem(SolAR::datastructure::UnitSystem input){
+    static org::openapitools::server::model::UnitSystem resolve_unitSystem(SolAR::datastructure::UnitSystem input){
 
         org::openapitools::server::model::UnitSystem ret;
         ret.setValue(org::openapitools::server::model::UnitSystem::eUnitSystem::INVALID_VALUE_OPENAPI_GENERATED);

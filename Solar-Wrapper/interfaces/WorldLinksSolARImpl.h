@@ -61,9 +61,7 @@ class WorldLinksSolARImpl : public org::openapitools::server::api::WorldLinksApi
         /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from all the StorageWorldLink
         void get_world_links(Pistache::Http::ResponseWriter &response) override;
 
-        /// @brief API method to get the world elements currently linked to the given world link
-        /// @param response: the response to be sent: if it succeeds, a JSON containing all the informations from the world elements currently linked to the given world link
-        void get_attached_objects_from_uuid(const std::string &worldLinkUUID, Pistache::Http::ResponseWriter &response) override;
+        virtual void modify_world_link(const org::openapitools::server::model::WorldLink &worldLink, Pistache::Http::ResponseWriter &response) override;
 
         /// @brief static method that returns a worldlink Json object from the informations contaiend in the worldStorage (before implementing a solution taht complies with the world link api description)
         /// @param worldLink: the StorageWorldLink to be converted
@@ -76,6 +74,12 @@ class WorldLinksSolARImpl : public org::openapitools::server::api::WorldLinksApi
 
         /// @brief initialize the API handler, creates the singleton m_worldStorage if it is not already done
         void init();
+
+        /// @brief method to convert ElementKind(SolAR) to ObjectType(OpenAPI spec)
+        static model::ObjectType resolve_element_kind(SolAR::datastructure::ElementKind kind);
+
+        /// @brief method to convert ObjectType(OpenAPI spec) to ElementKind(SolAR)
+        static SolAR::datastructure::ElementKind resolve_element_kind(model::ObjectType kind);
 
      private:
         /// @brief the instance of the world storage manager that will be used to handle the queries
