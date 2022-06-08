@@ -44,11 +44,11 @@ namespace org::openapitools::server::implem
 
         //localCRS
         std::vector<float> vector = trackable.getLocalCRS();
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
+        SolAR::datastructure::UnitSystem unitSystem = resolve_unitSystem(trackable.getUnit());
 
         //dimension
         Eigen::Vector3d dimension = Eigen::Vector3d(trackable.getTrackableSize().data());
@@ -209,11 +209,11 @@ namespace org::openapitools::server::implem
 
         //localCRS
         std::vector<float> vector = trackable.getLocalCRS();
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(trackable.getUnit());
+        SolAR::datastructure::UnitSystem unitSystem = resolve_unitSystem(trackable.getUnit());
 
         //dimension
         Eigen::Vector3d dimension = Eigen::Vector3d(trackable.getTrackableSize().data());
@@ -274,7 +274,7 @@ namespace org::openapitools::server::implem
             {
             //if something went wrong
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-            response.send(Pistache::Http::Code::Internal_Server_Error, "something went wrong when modifying the trackable to the world storage");
+            response.send(Pistache::Http::Code::Internal_Server_Error, "something went wrong when modifying the trackable to the world storage\n");
 
             }
         }
@@ -329,7 +329,7 @@ namespace org::openapitools::server::implem
         ret.setLocalCRS(localCRS);
 
         //Unit system
-        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(trackable.getUnitSystem());
+        org::openapitools::server::model::UnitSystem unit = resolve_unitSystem(trackable.getUnitSystem());
         ret.setUnit(unit);
 
         //Dimension (scale)

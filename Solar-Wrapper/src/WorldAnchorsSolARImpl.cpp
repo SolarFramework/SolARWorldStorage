@@ -41,14 +41,14 @@ namespace org::openapitools::server::implem
 
         //localCRS
         std::vector<float> vector = worldAnchor.getLocalCRS();
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //size
         Eigen::Vector3d size = Eigen::Vector3d(worldAnchor.getWorldAnchorSize().data());
 
         //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
+        SolAR::datastructure::UnitSystem unitSystem = resolve_unitSystem(worldAnchor.getUnit());
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
@@ -194,11 +194,11 @@ namespace org::openapitools::server::implem
 
         //localCRS
         std::vector<float> vector = worldAnchor.getLocalCRS();
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df localCRS(matrix);
 
         //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldAnchor.getUnit());
+        SolAR::datastructure::UnitSystem unitSystem = resolve_unitSystem(worldAnchor.getUnit());
 
         //size
         Eigen::Vector3d size = Eigen::Vector3d(worldAnchor.getWorldAnchorSize().data());
@@ -285,7 +285,7 @@ namespace org::openapitools::server::implem
 
         //Transform3Df (localCRS)
         SolAR::datastructure::Transform3Df transform3d = worldAnchor.getLocalCrs();
-        Eigen::Matrix4f matrix = transform3d.matrix();
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = transform3d.matrix();
         std::vector<float> localCRS;
         for (size_t i = 0; i < (size_t) matrix.rows(); i++)
         {
@@ -297,7 +297,7 @@ namespace org::openapitools::server::implem
         ret.setLocalCRS(localCRS);
 
         //Unit system
-        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(worldAnchor.getUnitSystem());
+        org::openapitools::server::model::UnitSystem unit = resolve_unitSystem(worldAnchor.getUnitSystem());
         ret.setUnit(unit);
 
         //Dimension (scale)

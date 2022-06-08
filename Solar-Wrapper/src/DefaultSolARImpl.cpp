@@ -38,7 +38,7 @@ namespace org::openapitools::server::implem
     void DefaultSolARImpl::get_admin(Pistache::Http::ResponseWriter &response) {
         response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
         //TODO add verif on the module side
-        response.send(Pistache::Http::Code::Ok, "Server running and ready !");
+        response.send(Pistache::Http::Code::Ok, "Server running and ready!");
     }
 
 }

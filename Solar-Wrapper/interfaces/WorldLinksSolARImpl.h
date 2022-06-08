@@ -76,10 +76,10 @@ class WorldLinksSolARImpl : public org::openapitools::server::api::WorldLinksApi
         void init();
 
         /// @brief method to convert ElementKind(SolAR) to ObjectType(OpenAPI spec)
-        static model::ObjectType resolveElementkind(SolAR::datastructure::ElementKind kind);
+        static model::ObjectType resolve_element_kind(SolAR::datastructure::ElementKind kind);
 
         /// @brief method to convert ObjectType(OpenAPI spec) to ElementKind(SolAR)
-        static SolAR::datastructure::ElementKind resolveElementkind(model::ObjectType kind);
+        static SolAR::datastructure::ElementKind resolve_element_kind(model::ObjectType kind);
 
      private:
         /// @brief the instance of the world storage manager that will be used to handle the queries

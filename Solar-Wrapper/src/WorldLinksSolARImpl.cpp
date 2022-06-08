@@ -47,7 +47,7 @@ namespace org::openapitools::server::implem {
 
         //transform 3d
         std::vector<float> vector = worldLink.getTransform();
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df transfo(matrix);
 
         //world element from ID
@@ -61,19 +61,20 @@ namespace org::openapitools::server::implem {
         {
             response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
             response.send(Pistache::Http::Code::Bad_Request, "An element can not be connected to himself\n");
+            return;
         }
 
         //world element from type
-        SolAR::datastructure::ElementKind fromElementType = resolveElementkind(worldLink.getTypeFrom());
+        SolAR::datastructure::ElementKind fromElementType = resolve_element_kind(worldLink.getTypeFrom());
 
         //world element to type
-        SolAR::datastructure::ElementKind toElementType = resolveElementkind(worldLink.getTypeTo());
+        SolAR::datastructure::ElementKind toElementType = resolve_element_kind(worldLink.getTypeTo());
 
         //adding the link to the storage by calling the world storage method
         xpcf::uuids::uuid linkId;
 
         //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldLink.getUnit());
+        SolAR::datastructure::UnitSystem unitSystem = resolve_unitSystem(worldLink.getUnit());
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
@@ -223,7 +224,7 @@ namespace org::openapitools::server::implem {
 
         //transform 3d
         std::vector<float> vector = worldLink.getTransform();
-        Eigen::Matrix4f matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = Eigen::Map<Eigen::Matrix<float,4,4,Eigen::RowMajor>>(vector.data());
         SolAR::datastructure::Transform3Df transfo(matrix);
 
         //world element from ID
@@ -240,13 +241,13 @@ namespace org::openapitools::server::implem {
         }
 
         //world element from type
-        SolAR::datastructure::ElementKind fromElementType = resolveElementkind(worldLink.getTypeFrom());
+        SolAR::datastructure::ElementKind fromElementType = resolve_element_kind(worldLink.getTypeFrom());
 
         //world element to type
-        SolAR::datastructure::ElementKind toElementType = resolveElementkind(worldLink.getTypeTo());
+        SolAR::datastructure::ElementKind toElementType = resolve_element_kind(worldLink.getTypeTo());
 
         //unitsystem
-        SolAR::datastructure::UnitSystem unitSystem = resolveUnitSystem(worldLink.getUnit());
+        SolAR::datastructure::UnitSystem unitSystem = resolve_unitSystem(worldLink.getUnit());
 
         //taglist
         std::multimap<std::string,std::string> keyvalueTagList;
@@ -284,7 +285,7 @@ namespace org::openapitools::server::implem {
             case SolAR::FrameworkReturnCode::_NOT_FOUND :
             {
                 response.headers().add<Pistache::Http::Header::ContentType>(MIME(Text, Plain));
-                response.send(Pistache::Http::Code::Not_Found, "Either the WorldLink was not found, either the elements it now connects were not found\n");
+                response.send(Pistache::Http::Code::Not_Found, "Either the WorldLink was not found, or the elements it should connect were not found\n");
                 break;
             }
 
@@ -332,16 +333,16 @@ namespace org::openapitools::server::implem {
         ret.setUUIDTo(elementFrom);
 
         //element from Type
-        model::ObjectType typeFrom = resolveElementkind(worldLink.getTypeFrom());
+        model::ObjectType typeFrom = resolve_element_kind(worldLink.getTypeFrom());
         ret.setTypeFrom(typeFrom);
 
         //element to Type
-        model::ObjectType typeTo = resolveElementkind(worldLink.getTypeTo());
+        model::ObjectType typeTo = resolve_element_kind(worldLink.getTypeTo());
         ret.setTypeTo(typeTo);
 
         //transform
         SolAR::datastructure::Transform3Df transform3d = worldLink.getTransform();
-        Eigen::Matrix4f matrix = transform3d.matrix();
+        Eigen::Matrix<float,4,4,Eigen::RowMajor> matrix = transform3d.matrix();
         std::vector<float> localCRS;
         for (size_t i = 0; i < (size_t) matrix.rows(); i++)
         {
@@ -353,7 +354,7 @@ namespace org::openapitools::server::implem {
         ret.setTransform(localCRS);
 
         //Unit system
-        org::openapitools::server::model::UnitSystem unit = resolveUnitSystem(worldLink.getUnitSystem());
+        org::openapitools::server::model::UnitSystem unit = resolve_unitSystem(worldLink.getUnitSystem());
         ret.setUnit(unit);
 
         //keyvalue taglist (multimap to map<string,vector<string>>)
@@ -374,7 +375,7 @@ namespace org::openapitools::server::implem {
         return ret;
     }
 
-    model::ObjectType WorldLinksSolARImpl::resolveElementkind(SolAR::datastructure::ElementKind kind)
+    model::ObjectType WorldLinksSolARImpl::resolve_element_kind(SolAR::datastructure::ElementKind kind)
     {
         model::ObjectType ret;
         switch(kind)
@@ -393,7 +394,7 @@ namespace org::openapitools::server::implem {
         }
     }
 
-    SolAR::datastructure::ElementKind WorldLinksSolARImpl::resolveElementkind(model::ObjectType kind)
+    SolAR::datastructure::ElementKind WorldLinksSolARImpl::resolve_element_kind(model::ObjectType kind)
     {
         switch(kind.getValue())
         {
